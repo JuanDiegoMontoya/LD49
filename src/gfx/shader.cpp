@@ -2,7 +2,7 @@
 
 #include <span>
 #include <string_view>
-#include <exception>
+#include <stdexcept>
 #include <fstream>
 #include <memory>
 
@@ -25,13 +25,10 @@ std::string LoadFile(std::string_view file)
 
 GLuint CompileShader(GLenum stage, std::string_view source)
 {
-  // ensure our string is nul-terminated
-  assert(source[source.size() - 1] == '\0');
+  auto sourceStr = std::string(source);
+  const GLchar* strings = sourceStr.c_str();
 
   GLuint shader = glCreateShader(stage);
-
-  const GLchar* strings = source.data();
-
   glShaderSource(shader, 1, &strings, nullptr);
   glCompileShader(shader);
 
@@ -91,7 +88,8 @@ auto InitUniforms(GLuint program)
       GLuint uniform_info = {};
       uniform_info = glGetUniformLocation(program, uniform_name.c_str());
 
-      uniforms.emplace(uniform_name, uniform_info);
+      // using the regular string may result in extra NULs at the end, changing hashes!
+      uniforms.emplace(uniform_name.c_str(), uniform_info);
     }
   }
 

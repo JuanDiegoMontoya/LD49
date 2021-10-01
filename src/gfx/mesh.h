@@ -8,6 +8,8 @@
 
 namespace GFX
 {
+  using index_t = uint32_t;
+
   struct Vertex
   {
     glm::vec3 position{};
@@ -15,5 +17,11 @@ namespace GFX
     glm::vec2 texcoord{};
   };
 
-  std::vector<Vertex> LoadMesh(std::string_view file);
+  struct Mesh
+  {
+    std::vector<Vertex> vertices;
+  };
+
+
+  Mesh LoadMesh(std::string_view file);
 }

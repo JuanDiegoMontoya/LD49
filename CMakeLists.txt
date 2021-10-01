@@ -12,11 +12,15 @@ set(source_files
 	src/main.cpp
 	src/gfx/mesh.cpp
 	src/gfx/shader.cpp
+	src/gfx/renderer.cpp
+	src/gfx/camera.cpp
 )
 
 set(header_files
 	src/gfx/mesh.h
 	src/gfx/shader.h
+	src/gfx/renderer.h
+	src/gfx/camera.h
 	src/utility/transparent_string_hash.h
 	src/utility/defer.h
 )
@@ -65,7 +69,7 @@ target_compile_options(game
 	/W4>
 )
 
-# copies files to the build folder
-add_custom_target(copy-asset-files ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets ${CMAKE_BINARY_DIR}/assets
-    DEPENDS game)
+# copies assets to the build folder
+add_custom_target(copy_assets ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets ${CMAKE_BINARY_DIR}/assets)
+add_dependencies(game copy_assets)

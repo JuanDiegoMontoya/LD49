@@ -1,3 +1,5 @@
+# external content definitions
+
 option(BUILD_TESTING "" OFF)
 option(GLFW_BUILD_TESTS "" OFF)
 option(GLFW_BUILD_DOCS "" OFF)
@@ -25,23 +27,25 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(glm glfw)
 
+# MakeAvailable isn't sufficient for ImGui, so we need to manually add it
 FetchContent_GetProperties(imgui)
 if(NOT imgui_POPULATED)
-  FetchContent_Populate(imgui)
+    FetchContent_Populate(imgui)
 
-  add_library(lib_imgui
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp)
+    add_library(lib_imgui
+        ${imgui_SOURCE_DIR}/imgui.cpp
+        ${imgui_SOURCE_DIR}/imgui_draw.cpp
+        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+        ${imgui_SOURCE_DIR}/imgui_tables.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp)
 
-  target_include_directories(lib_imgui PUBLIC 
-    ${imgui_SOURCE_DIR} 
-    ${imgui_SOURCE_DIR}/backends
-    ${glfw_SOURCE_DIR}/include)
+    target_include_directories(lib_imgui PUBLIC 
+        ${imgui_SOURCE_DIR} 
+        ${imgui_SOURCE_DIR}/backends
+        ${glfw_SOURCE_DIR}/include)
 endif()
 
+# add other subdirectories in external/, which aren't grabbed by FetchContent
 add_subdirectory(glad)
 add_subdirectory(tinyobjloader)

@@ -7,6 +7,7 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_glfw.h>
 #include <exception>
+#include <tiny_obj_loader.h>
 
 struct WindowCreateInfo
 {
@@ -36,7 +37,7 @@ GLFWwindow* CreateWindow(const WindowCreateInfo& createInfo)
   glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
 
   const GLFWvidmode* videoMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-  GLFWwindow* window = glfwCreateWindow(createInfo.width, createInfo.height, "Sample Text", nullptr, nullptr);
+  GLFWwindow* window = glfwCreateWindow(createInfo.width, createInfo.height, "Top Text", nullptr, nullptr);
 
   if (!window)
   {

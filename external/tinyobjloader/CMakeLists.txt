@@ -1,0 +1,2 @@
+add_library(lib_tinyobjloader src/tiny_obj_loader.cpp)
+target_include_directories(lib_tinyobjloader PUBLIC include)

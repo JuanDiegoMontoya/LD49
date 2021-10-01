@@ -6,8 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(external)
 
-set(source_files 
-	src/main.cpp)
+set(source_files src/main.cpp)
 
 add_executable(game ${source_files})# ${header_files})
 
@@ -15,7 +14,7 @@ set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT g
 
 target_include_directories(game PRIVATE external)
 
-target_link_libraries(game glm glfw lib_imgui lib_glad)
+target_link_libraries(game glm glfw lib_imgui lib_glad lib_tinyobjloader)
 
 add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_CUSTOM)
 

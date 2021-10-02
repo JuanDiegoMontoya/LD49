@@ -18,6 +18,8 @@
 #include "gfx/renderer.h"
 #include "gfx/mesh.h"
 #include "gfx/camera.h"
+#include "game/game.h"
+#include "game/physics.h"
 
 struct WindowCreateInfo
 {
@@ -31,6 +33,7 @@ GLFWwindow* CreateWindow(const WindowCreateInfo& createInfo)
 {
   if (!glfwInit())
   {
+    ;
     throw std::runtime_error("Failed to initialize GLFW");
   }
 
@@ -85,21 +88,26 @@ int main()
 
   glViewport(0, 0, frameWidth, frameHeight);
 
+  Game::EntityManager entityManager;
+  Game::Physics physics;
   GFX::Renderer renderer;
   GFX::Camera camera;
   camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.3f, 100.0f);
-  camera.viewInfo.position = { -1.5, 0, 0 };
+  camera.viewInfo.position = { -5.5, 1, 0 };
 
-  GFX::Mesh mesh = GFX::LoadMesh("bunny.obj");
+  GFX::Mesh mesh = GFX::LoadMesh("sphere.obj");
 
-  GFX::MeshHandle bunnyHandle = renderer.GenerateMeshHandle(mesh);
-  GFX::Renderable bunny;
-  bunny.position = { 0, -0.5, 0 };
-  bunny.scale = glm::vec3(5);
-  bunny.handle = bunnyHandle;
+  MeshHandle bunnyHandle = renderer.GenerateMeshHandle(mesh);
+  Game::GameObject bunny;
+  bunny.entity = entityManager.CreateEntity();
+  bunny.transform.position = { 0, 5.5, 0 };
+  bunny.transform.scale = glm::vec3(1);
+  bunny.mesh = bunnyHandle;
 
-  // adjustable green hue
-  float green = 0.0f;
+  Game::Sphere sphere{ 1.0f };
+  physics.AddObject(&bunny, Game::MaterialType::OBJECT, &sphere);
+  
+  //entityManager.GetObject(bunny.entity) = bunny;
 
   double prevFrame = glfwGetTime();
   while (!glfwWindowShouldClose(window))
@@ -123,17 +131,16 @@ int main()
     // some ImGui stuff for testing
     ImGui::Begin("joe");
     ImGui::Text("Aloha");
-    ImGui::SliderFloat("Green", &green, 0.0f, 1.0f);
-    ImGui::SliderFloat("Yaw", &camera.viewInfo.yaw, 0.0f, 3.1415f);
+    ImGui::SliderFloat("Pitch", &camera.viewInfo.pitch, -3.14f / 2, 3.14f / 2);
+    ImGui::SliderFloat("Yaw", &camera.viewInfo.yaw, -3.14f, 3.14f);
     ImGui::End();
 
-    // pulsing red+blue
-    glClearColor(sin(curFrame), green, cos(curFrame), 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    physics.Simulate(dt);
 
     //camera.viewInfo.yaw += dt;
-    bunny.rotation *= glm::rotate(glm::quat(1, 0, 0, 0), static_cast<float>(dt), { 0, 1, 0 });
-    renderer.Submit(bunny);
+    //bunny.transform.rotation *= glm::rotate(glm::quat(1, 0, 0, 0), static_cast<float>(dt), { 0, 1, 0 });
+    renderer.Submit(bunny.transform, bunny.mesh, bunny.renderable);
     renderer.Draw(camera);
 
     ImGui::Render();

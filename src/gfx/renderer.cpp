@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <format>
+#include <concepts>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -78,6 +79,28 @@ static void GLAPIENTRY glErrorCallback(
 
 namespace GFX
 {
+  namespace
+  {
+    struct RenderTuple
+    {
+      Transform transform;
+      MeshHandle mesh;
+      Renderable renderable;
+    };
+
+    constexpr int gl_index_type()
+    {
+      if constexpr (std::same_as<index_t, uint32_t>)
+        return GL_UNSIGNED_INT;
+      if constexpr (std::same_as<index_t, uint16_t>)
+        return GL_UNSIGNED_SHORT;
+      if constexpr (std::same_as<index_t, uint8_t>)
+        return GL_UNSIGNED_BYTE;
+
+      return 0;
+    }
+  }
+
   struct RendererImpl
   {
     ////////////////////////////////////////////////////////
@@ -87,7 +110,8 @@ namespace GFX
     GLuint standardVao{};
     Shader basicShader{};
     Shader standardShader{};
-    std::vector<Renderable> renderables;
+    Shader environmentShader{};
+    std::vector<RenderTuple> renderables;
 
 
     ////////////////////////////////////////////////////////
@@ -112,6 +136,7 @@ namespace GFX
 
       basicShader = LoadVertexFragmentProgram("basic.vert.glsl", "basic.frag.glsl");
       standardShader = LoadVertexFragmentProgram("standard.vert.glsl", "standard.frag.glsl");
+      environmentShader = LoadVertexFragmentProgram("environment.vert.glsl", "environment.frag.glsl");
 
 #if !NDEBUG
       // enable debugging stuff
@@ -185,31 +210,50 @@ namespace GFX
       glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    void Submit(const Renderable& renderable)
+    void Submit(const Transform& transform,
+      const MeshHandle& mesh,
+      const Renderable& renderable)
     {
-      renderables.push_back(renderable);
+      renderables.push_back({ transform, mesh, renderable });
     }
 
     void Draw(const Camera& camera)
     {
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      glEnable(GL_FRAMEBUFFER_SRGB);
+
+      DrawRenderables(camera);
+      DrawEnvironment(camera);
+    }
+
+    void DrawRenderables(const Camera& camera)
+    {
       standardShader.Bind();
       standardShader.SetMat4("u_viewProj", camera.GetViewProj());
       glBindVertexArray(standardVao);
-      glEnable(GL_FRAMEBUFFER_SRGB);
 
-      for (const auto& renderable : renderables)
+      for (const auto& [transform, mesh, renderable] : renderables)
       {
-        glm::mat4 model = glm::translate(glm::mat4(1.0), renderable.position)
-          * glm::mat4_cast(renderable.rotation)
-          * glm::scale(glm::mat4(1.0), renderable.scale);
+        glm::mat4 model = transform.GetModel();
 
         standardShader.SetMat4("u_model", model);
-        glVertexArrayVertexBuffer(standardVao, 0, renderable.handle.vertexBuffer, 0, sizeof(Vertex));
-        glDrawArrays(GL_TRIANGLES, 0, renderable.handle.count);
+        glVertexArrayVertexBuffer(standardVao, 0, mesh.vertexBuffer, 0, sizeof(Vertex));
+        glVertexArrayElementBuffer(standardVao, mesh.indexBuffer);
+        glDrawElements(GL_TRIANGLES, mesh.count, gl_index_type(), nullptr);
       }
 
       renderables.clear();
     }
+
+    void DrawEnvironment(const Camera& camera)
+    {
+      environmentShader.Bind();
+      environmentShader.SetMat4("u_invViewProj", glm::inverse(camera.GetViewProj()));
+      environmentShader.SetVec3("u_viewPos", camera.viewInfo.position);
+      glBindVertexArray(emptyVao);
+      glDrawArrays(GL_TRIANGLES, 0, 3);
+    }
+
   };
 
   Renderer::Renderer()
@@ -230,12 +274,17 @@ namespace GFX
     glCreateBuffers(1, &handle.vertexBuffer);
     glNamedBufferStorage(handle.vertexBuffer, sizeof(Vertex) * mesh.vertices.size(), mesh.vertices.data(), 0);
 
+    glCreateBuffers(1, &handle.indexBuffer);
+    glNamedBufferStorage(handle.indexBuffer, sizeof(index_t) * mesh.indices.size(), mesh.indices.data(), 0);
+
     return handle;
   }
 
-  void Renderer::Submit(const Renderable& renderable)
+  void Renderer::Submit(const Transform& transform,
+    const MeshHandle& mesh,
+    const Renderable& renderable)
   {
-    impl_->Submit(renderable);
+    impl_->Submit(transform, mesh, renderable);
   }
 
   void Renderer::Draw(const Camera& camera)

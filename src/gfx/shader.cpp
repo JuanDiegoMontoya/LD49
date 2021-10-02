@@ -50,13 +50,14 @@ GLuint CompileShader(GLenum stage, std::string_view source)
 void LinkProgram(GLuint program)
 {
   glLinkProgram(program);
+  GLsizei length = 512;
 
   GLint success{};
   glGetProgramiv(program, GL_LINK_STATUS, &success);
   if (!success)
   {
-    GLsizei length;
-    glGetProgramInfoLog(program, 0, &length, nullptr);
+    //GLsizei length;
+    //glGetProgramInfoLog(program, 0, &length, nullptr);
     std::string infoLog(length + 1, '\0');
     glGetProgramInfoLog(program, length, nullptr, infoLog.data());
 

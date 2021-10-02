@@ -2,14 +2,76 @@
 
 #include <stdexcept>
 #include <iostream>
+#include <unordered_map>
+#include <algorithm>
+#include <tuple>
+#include <functional>
 
 #include <tiny_obj_loader.h>
+
+
+template<typename T> struct hash;
+
+template<>
+struct hash<GFX::Vertex>
+{
+  std::size_t operator()(const GFX::Vertex& a) const noexcept;
+};
+
+namespace
+{
+  template <class T>
+  inline void hash_combine(std::size_t& seed, T const& v)
+  {
+    seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  }
+
+  // Recursive template code derived from Matthieu M.
+  template <class Tuple, size_t Index = std::tuple_size<Tuple>::value - 1>
+  struct HashValueImpl
+  {
+    static void apply(size_t& seed, Tuple const& tuple)
+    {
+      HashValueImpl<Tuple, Index - 1>::apply(seed, tuple);
+      hash_combine(seed, std::get<Index>(tuple));
+    }
+  };
+
+  template <class Tuple>
+  struct HashValueImpl<Tuple, 0>
+  {
+    static void apply(size_t& seed, Tuple const& tuple)
+    {
+      hash_combine(seed, std::get<0>(tuple));
+    }
+  };
+
+  template <typename ... TT>
+  struct hash<std::tuple<TT...>>
+  {
+    size_t operator()(std::tuple<TT...> const& tt) const
+    {
+      size_t seed = 0;
+      HashValueImpl<std::tuple<TT...> >::apply(seed, tt);
+      return seed;
+    }
+  };
+}
+
+
+std::size_t hash<GFX::Vertex>::operator()(const GFX::Vertex& a) const noexcept
+{
+  auto tup = std::make_tuple(a.position.x, a.position.y, a.position.z, a.normal.x, a.normal.y, a.normal.z);
+  hash<decltype(tup)> hasher;
+  return hasher(tup);
+}
+
 
 namespace GFX
 {
   Mesh LoadMesh(std::string_view file)
   {
-    Mesh mesh;
+    std::vector<Vertex> vertices;
 
     tinyobj::ObjReaderConfig reader_config;
     reader_config.triangulate = true;
@@ -23,7 +85,7 @@ namespace GFX
       {
         throw std::runtime_error(reader.Error());
       }
-      exit(1);
+      throw std::runtime_error("Failed to parse mesh!");
     }
 
     if (!reader.Warning().empty())
@@ -71,13 +133,41 @@ namespace GFX
             vertex.texcoord.y = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
           }
 
-          mesh.vertices.push_back(vertex);
+          vertices.push_back(vertex);
         }
         index_offset += fv;
 
         // per-face material
         shapes[s].mesh.material_ids[f];
       }
+    }
+
+    //// TODO: replace with actual index buffer generation
+    //mesh.indices.resize(mesh.vertices.size());
+    //for (size_t i = 0; i < mesh.vertices.size(); i++)
+    //{
+    //  mesh.indices[i] = i;
+    //}
+
+    Mesh mesh;
+
+    std::unordered_map<Vertex, index_t, hash<Vertex>> vertexToIndex;
+    index_t curIndex = 0;
+
+    for (const auto& vertex : vertices)
+    {
+      auto it = vertexToIndex.find(vertex);
+      if (it != vertexToIndex.end())
+      {
+        mesh.indices.push_back(it->second);
+      }
+      else
+      {
+        mesh.vertices.push_back(vertex);
+        mesh.indices.push_back(curIndex);
+      }
+
+      vertexToIndex[vertex] = curIndex++;
     }
 
     return mesh;

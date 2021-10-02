@@ -15,13 +15,19 @@ namespace GFX
     glm::vec3 position{};
     glm::vec3 normal{};
     glm::vec2 texcoord{};
+
+    bool operator==(const Vertex& b) const
+    {
+      return position == b.position &&
+        normal == b.normal;
+    }
   };
 
   struct Mesh
   {
     std::vector<Vertex> vertices;
+    std::vector<index_t> indices;
   };
-
 
   Mesh LoadMesh(std::string_view file);
 }

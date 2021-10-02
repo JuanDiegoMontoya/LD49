@@ -46,6 +46,10 @@ if(NOT imgui_POPULATED)
         ${glfw_SOURCE_DIR}/include)
 endif()
 
+# hacks
+set_property(TARGET glfw PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
+set_property(TARGET lib_imgui PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
+
 # add other subdirectories in external/, which aren't grabbed by FetchContent
 add_subdirectory(glad)
 add_subdirectory(tinyobjloader)

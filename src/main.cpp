@@ -95,7 +95,7 @@ int main()
   world.io = &ImGui::GetIO();
   Game::Physics physics;
   GFX::Renderer renderer;
-  world.camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.3f, 100.0f);
+  world.camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.2f, 400.0f);
   world.camera.viewInfo.position = { -5.5, 3, 0 };
   physics.SetWorld(&world);
 

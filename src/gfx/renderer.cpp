@@ -10,6 +10,8 @@
 
 #include <glad/gl.h>
 
+#include <GLFW/glfw3.h>
+
 #include "shader.h"
 #include "mesh.h"
 #include "camera.h"
@@ -112,7 +114,6 @@ namespace GFX
     Shader standardShader{};
     Shader environmentShader{};
     std::vector<RenderTuple> renderables;
-
 
     ////////////////////////////////////////////////////////
     // functions
@@ -256,6 +257,7 @@ namespace GFX
       environmentShader.Bind();
       environmentShader.SetMat4("u_invViewProj", glm::inverse(camera.GetViewProj()));
       environmentShader.SetVec3("u_viewPos", camera.viewInfo.position);
+      environmentShader.SetFloat("u_time", glfwGetTime());
       glBindVertexArray(emptyVao);
       glDrawArrays(GL_TRIANGLES, 0, 3);
     }
@@ -276,7 +278,7 @@ namespace GFX
   {
     MeshHandle handle;
     handle.count = mesh.vertices.size();
-
+    
     glCreateBuffers(1, &handle.vertexBuffer);
     glNamedBufferStorage(handle.vertexBuffer, sizeof(Vertex) * mesh.vertices.size(), mesh.vertices.data(), 0);
 

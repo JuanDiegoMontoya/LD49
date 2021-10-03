@@ -6,6 +6,12 @@
 #include <glm/mat4x4.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+enum class EntityType
+{
+  TERRAIN,
+  EXPLOSIVE,
+};
+
 struct Transform
 {
   glm::vec3 position{};

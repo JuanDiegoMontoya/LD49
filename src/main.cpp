@@ -102,14 +102,19 @@ int main()
   GFX::Mesh mesh = GFX::LoadMesh("sphere.obj");
 
   MeshHandle bunnyHandle = renderer.GenerateMeshHandle(mesh);
-  Game::GameObject* bunny = world.entityManager.GetObject(world.entityManager.CreateEntity());
-  bunny->transform.position = { 0, 5.5, 0 };
-  bunny->transform.scale = glm::vec3(1);
-  bunny->mesh = bunnyHandle;
-  bunny->renderable.visible = true;
 
-  Game::Sphere sphere{ 1.0f };
-  physics.AddObject(bunny, Game::MaterialType::TERRAIN, &sphere);
+  for (int i = 0; i < 5; i++)
+  {
+    Game::GameObject* obj = world.entityManager.GetObject(world.entityManager.CreateEntity());
+    obj->transform.position = { 0, 5.5 * i, 0 };
+    obj->transform.scale = glm::vec3(1);
+    obj->mesh = bunnyHandle;
+    obj->renderable.visible = true;
+    obj->type = EntityType::EXPLOSIVE;
+
+    Game::Sphere sphere{ 1.0f };
+    physics.AddObject(obj, Game::MaterialType::OBJECT, &sphere);
+  }
 
   double prevFrame = glfwGetTime();
   while (!glfwWindowShouldClose(window))
@@ -163,7 +168,7 @@ int main()
 
     for (const auto& obj : world.entityManager.GetObjects())
     {
-      renderer.Submit(obj.transform, obj.mesh, obj.renderable);
+      renderer.Submit(obj->transform, obj->mesh, obj->renderable);
     }
     renderer.Draw(world.camera, dt);
 
@@ -178,6 +183,6 @@ int main()
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 
-  glfwTerminate();
+  //glfwTerminate();
   return 0;
 }

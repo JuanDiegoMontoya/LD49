@@ -4,19 +4,19 @@ namespace Game
 {
   entity_t EntityManager::CreateEntity()
   {
-    GameObject obj{};
-    obj.entity = ++nextEntity;
+    GameObject* obj = new GameObject;
+    obj->entity = ++nextEntity;
     objects.push_back(obj);
     return nextEntity;
   }
 
   GameObject* EntityManager::GetObject(entity_t entity)
   {
-    for (auto& obj : objects)
+    for (size_t i = 0; i < objects.size(); i++)
     {
-      if (obj.entity == entity)
+      if (objects[i]->entity == entity)
       {
-        return &obj;
+        return objects[i];
       }
     }
 
@@ -27,9 +27,10 @@ namespace Game
   {
     for (size_t i = 0; i < objects.size(); i++)
     {
-      if (objects[i].entity == entity)
+      if (objects[i]->entity == entity)
       {
         objects.erase(objects.begin() + i);
+        delete objects[i];
         return;
       }
     }

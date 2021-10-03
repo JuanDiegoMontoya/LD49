@@ -15,6 +15,7 @@ namespace Game
   {
     entity_t entity{};
 
+    EntityType type;
     Transform transform;
     MeshHandle mesh;
     Renderable renderable;
@@ -36,6 +37,6 @@ namespace Game
   private:
     entity_t nextEntity = 0;
 
-    std::vector<GameObject> objects;
+    std::vector<GameObject*> objects;
   };
 }

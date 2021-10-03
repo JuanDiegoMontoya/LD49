@@ -98,24 +98,19 @@ namespace
   }
   
   PxFilterFlags contactReportFilterShader(
-    PxFilterObjectAttributes attributes0, PxFilterData filterData0,
-    PxFilterObjectAttributes attributes1, PxFilterData filterData1,
-    PxPairFlags& pairFlags, const void* constantBlock, PxU32 constantBlockSize)
+    [[maybe_unused]] PxFilterObjectAttributes attributes0, [[maybe_unused]] PxFilterData filterData0,
+    [[maybe_unused]] PxFilterObjectAttributes attributes1, [[maybe_unused]] PxFilterData filterData1,
+    PxPairFlags& pairFlags, [[maybe_unused]] const void* constantBlock, [[maybe_unused]] PxU32 constantBlockSize)
   {
-    PX_UNUSED(attributes0);
-    PX_UNUSED(attributes1);
-    PX_UNUSED(filterData0);
-    PX_UNUSED(filterData1);
-    PX_UNUSED(constantBlockSize);
-    PX_UNUSED(constantBlock);
-
     // all initial and persisting reports for everything, with per-point data
     pairFlags = PxPairFlag::eSOLVE_CONTACT
       | PxPairFlag::eDETECT_DISCRETE_CONTACT
       | PxPairFlag::eNOTIFY_TOUCH_FOUND
-      | PxPairFlag::eNOTIFY_TOUCH_PERSISTS
+      //| PxPairFlag::eNOTIFY_TOUCH_PERSISTS
       | PxPairFlag::eNOTIFY_CONTACT_POINTS
-      | PxPairFlag::eDETECT_CCD_CONTACT;
+      | PxPairFlag::eDETECT_CCD_CONTACT
+      | PxPairFlag::eNOTIFY_THRESHOLD_FORCE_FOUND
+      ;
     return PxFilterFlag::eDEFAULT;
   }
 
@@ -128,37 +123,25 @@ namespace
     }
   };
 
-  class ContactReportCallback : public PxSimulationEventCallback
-  {
-  public:
-    //ContactReportCallback(std::unordered_map<physx::PxRigidActor*, Entity>& ea) : gEntityActors(ea) {}
-    ContactReportCallback(PhysicsImpl* physics) : physics_(physics) {}
-
-  private:
-    //std::unordered_map<physx::PxRigidActor*, Entity>& gEntityActors;
-    PhysicsImpl* physics_{};
-
-    void onConstraintBreak(PxConstraintInfo* constraints, PxU32 count) { PX_UNUSED(constraints); PX_UNUSED(count); }
-    void onWake(PxActor** actors, PxU32 count) { PX_UNUSED(actors); PX_UNUSED(count); }
-    void onSleep(PxActor** actors, PxU32 count) { PX_UNUSED(actors); PX_UNUSED(count); }
-    void onTrigger(PxTriggerPair* pairs, PxU32 count) { PX_UNUSED(pairs); PX_UNUSED(count); }
-    void onAdvance(const PxRigidBody* const*, const PxTransform*, const PxU32) {}
-    void onContact(const PxContactPairHeader& pairHeader, [[maybe_unused]] const PxContactPair* pairs, [[maybe_unused]] PxU32 nbPairs)
-    {
-      //auto it1 = gEntityActors.find(pairHeader.actors[0]);
-      //auto it2 = gEntityActors.find(pairHeader.actors[1]);
-      //if (it1 != gEntityActors.end())
-      //{
-      //  //printf("%s", it1->second.GetComponent<Components::Tag>().tag.c_str());
-      //}
-      //if (it2 != gEntityActors.end())
-      //{
-      //  //printf("%s", it2->second.GetComponent<Components::Tag>().tag.c_str());
-      //}
-    }
-  };
 }
 
+class ContactReportCallback : public PxSimulationEventCallback
+{
+public:
+  //ContactReportCallback(std::unordered_map<physx::PxRigidActor*, Entity>& ea) : gEntityActors(ea) {}
+  ContactReportCallback(PhysicsImpl* physics) : physics_(physics) {}
+
+private:
+  //std::unordered_map<physx::PxRigidActor*, Entity>& gEntityActors;
+  PhysicsImpl* physics_{};
+
+  void onConstraintBreak(PxConstraintInfo* constraints, PxU32 count);
+  void onWake(PxActor** actors, PxU32 count) { PX_UNUSED(actors); PX_UNUSED(count); }
+  void onSleep(PxActor** actors, PxU32 count) { PX_UNUSED(actors); PX_UNUSED(count); }
+  void onTrigger(PxTriggerPair* pairs, PxU32 count) { PX_UNUSED(pairs); PX_UNUSED(count); }
+  void onAdvance(const PxRigidBody* const*, const PxTransform*, const PxU32) {}
+  void onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs);
+};
 
 
 struct PhysicsImpl
@@ -222,7 +205,7 @@ struct PhysicsImpl
 
     PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
     sceneDesc.cpuDispatcher = gDispatcher;
-    sceneDesc.gravity = PxVec3(0, -15.81f, 0);
+    sceneDesc.gravity = PxVec3(0, -25.0f, 0);
     sceneDesc.filterShader = contactReportFilterShader;
     sceneDesc.simulationEventCallback = gContactReportCallback;
     sceneDesc.solverType = PxSolverType::ePGS; // faster than eTGS
@@ -239,7 +222,7 @@ struct PhysicsImpl
 
     gMaterials[(int)Game::MaterialType::PLAYER] = gPhysics->createMaterial(0.2f, 0.2f, 0.0f);
     gMaterials[(int)Game::MaterialType::TERRAIN] = gPhysics->createMaterial(0.4f, 0.4f, 0.6f);
-    gMaterials[(int)Game::MaterialType::OBJECT] = gPhysics->createMaterial(0.2f, 0.4f, 0.9f);
+    gMaterials[(int)Game::MaterialType::OBJECT] = gPhysics->createMaterial(0.2f, 0.4f, 0.7f);
 
     PxRigidStatic* groundPlane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 0), *gMaterials[(int)Game::MaterialType::TERRAIN]);
     gScene->addActor(*groundPlane);
@@ -576,12 +559,18 @@ struct PhysicsImpl
     }
     case Game::MaterialType::OBJECT:
     {
-      actor = PxCreateDynamic(*gPhysics, pose, *geom, *gMaterials[(int)material], 10.0f);
+      auto* dynamic = PxCreateDynamic(*gPhysics, pose, *geom, *gMaterials[(int)material], 10.0f);
+      actor = dynamic;
+      if (object->type == EntityType::EXPLOSIVE)
+      {
+        dynamic->setContactReportThreshold(25000.0);
+      }
       break;
     }
     default:
       break;
     }
+
 
     gActorToObject[actor] = object;
     gObjectToActor[object] = actor;
@@ -650,5 +639,47 @@ namespace Game
 
   void Physics::SetObjectTransform(GameObject* object, Transform transform)
   {
+  }
+}
+
+void ContactReportCallback::onConstraintBreak(PxConstraintInfo* constraints, PxU32 count)
+{
+  //printf("a");
+}
+
+void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[maybe_unused]] const PxContactPair* pairs, [[maybe_unused]] PxU32 nbPairs)
+{
+  auto it1 = physics_->gActorToObject.find(pairHeader.actors[0]);
+  auto it2 = physics_->gActorToObject.find(pairHeader.actors[1]);
+  if (it1 != physics_->gActorToObject.end())
+  {
+    //printf("a");
+  }
+  if (it2 != physics_->gActorToObject.end())
+  {
+    //printf("b");
+  }
+  //printf("C");
+
+  for (int i = 0; i < nbPairs; i++)
+  {
+    const auto& pair = pairs[i];
+
+    for (int j = 0; j < pair.contactCount; j++)
+    {
+      auto a = pairHeader.actors[0];
+      auto b = pairHeader.actors[1];
+
+      if (!(pair.events & PxPairFlag::eNOTIFY_THRESHOLD_FORCE_FOUND))
+      {
+        continue;
+      }
+      //if ()
+      if (auto ait = physics_->gActorToObject.find(a); ait != physics_->gActorToObject.end())
+      {
+
+      }
+      printf("%f\n", pair.contactImpulses[j]);
+    }
   }
 }

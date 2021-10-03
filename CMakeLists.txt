@@ -31,6 +31,7 @@ set(source_files
 	src/gfx/shader.cpp
 	src/gfx/renderer.cpp
 	src/game/game.cpp
+	src/game/level.cpp
 	src/game/physics.cpp
 )
 
@@ -45,6 +46,7 @@ set(header_files
 	src/utility/defer.h
 	src/utility/transparent_string_hash.h
 	src/game/game.h
+	src/game/level.h
 	src/game/physics.h
 )
 

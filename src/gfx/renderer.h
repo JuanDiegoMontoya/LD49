@@ -21,7 +21,7 @@ namespace GFX
     void Submit(const Transform& transform,
       const MeshHandle& mesh,
       const Renderable& renderable);
-    void Draw(const Camera& camera);
+    void Draw(const Camera& camera, float dt);
 
   private:
     struct RendererImpl* impl_;

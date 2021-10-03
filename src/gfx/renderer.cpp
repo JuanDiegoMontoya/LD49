@@ -10,8 +10,6 @@
 
 #include <glad/gl.h>
 
-#include <GLFW/glfw3.h>
-
 #include "shader.h"
 #include "mesh.h"
 #include "camera.h"
@@ -114,6 +112,9 @@ namespace GFX
     Shader standardShader{};
     Shader environmentShader{};
     std::vector<RenderTuple> renderables;
+    glm::vec3 sunDir = { 0, -1, 0 };
+    float blendDay = 0;
+    double gTime = 0;
 
     ////////////////////////////////////////////////////////
     // functions
@@ -219,19 +220,28 @@ namespace GFX
       renderables.push_back({ transform, mesh, renderable });
     }
 
-    void Draw(const Camera& camera)
+    void Draw(const Camera& camera, float dt)
     {
+      gTime += dt;
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       glEnable(GL_FRAMEBUFFER_SRGB);
 
       DrawRenderables(camera);
       DrawEnvironment(camera);
+
+      sunDir.y = -glm::sin(gTime);
+      sunDir.x = glm::cos(gTime);
+      sunDir.z = 0.8;
+      sunDir = glm::normalize(sunDir);
+      blendDay = glm::max(-sunDir.y * 2, 0.0f);
     }
 
     void DrawRenderables(const Camera& camera)
     {
       standardShader.Bind();
       standardShader.SetMat4("u_viewProj", camera.GetViewProj());
+      standardShader.SetVec3("u_sunDir", sunDir);
+      standardShader.SetFloat("u_blendDay", blendDay);
       glBindVertexArray(standardVao);
 
       for (const auto& [transform, mesh, renderable] : renderables)
@@ -257,7 +267,9 @@ namespace GFX
       environmentShader.Bind();
       environmentShader.SetMat4("u_invViewProj", glm::inverse(camera.GetViewProj()));
       environmentShader.SetVec3("u_viewPos", camera.viewInfo.position);
-      environmentShader.SetFloat("u_time", glfwGetTime());
+      environmentShader.SetFloat("u_time", gTime);
+      environmentShader.SetFloat("u_blendDay", blendDay);
+      environmentShader.SetVec3("u_sunDir", sunDir);
       glBindVertexArray(emptyVao);
       glDrawArrays(GL_TRIANGLES, 0, 3);
     }
@@ -295,8 +307,8 @@ namespace GFX
     impl_->Submit(transform, mesh, renderable);
   }
 
-  void Renderer::Draw(const Camera& camera)
+  void Renderer::Draw(const Camera& camera, float dt)
   {
-    impl_->Draw(camera);
+    impl_->Draw(camera, dt);
   }
 }

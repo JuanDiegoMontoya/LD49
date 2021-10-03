@@ -3,6 +3,8 @@
 uniform mat4 u_invViewProj;
 uniform vec3 u_viewPos;
 uniform float u_time;
+uniform vec3 u_sunDir;
+uniform float u_blendDay;
 
 in vec2 vTexcoord;
 
@@ -97,7 +99,26 @@ vec3 Unproject(vec2 uv, mat4 invXProj)
 void main()
 {
     vec3 dir = normalize(Unproject(vTexcoord, u_invViewProj) - u_viewPos);
-    fragColor = vec4(dir * 0.5 + 0.5, 1.0);
+    vec3 skyDay = vec3(9.0 / 255, 118.0 / 255, 148.0 / 255);
+    vec3 skyNight = vec3(7.0 / 255, 8.0 / 255, 15.0 / 255);
+    vec3 skyLow = vec3(145.0 / 255, 69.0 / 255, 41.0 / 255);
+    vec3 skyHigh = mix(skyNight, skyDay, u_blendDay); // no reference intended
+    float blendSky = dir.y;
+    fragColor.rgb = mix(skyLow, skyHigh, min(1.0, blendSky * 2.0));
+
+
+    float sun = dot(u_sunDir, -dir);
+    if (sun > .995)
+    {
+        vec3 sunColor = vec3(255.0 / 255, 253.0 / 255, 163.0 / 255);
+        //sun = (sun - 0.99) * 100;
+        //float blendSun = smoothstep(0.0, .1, sun);
+        if (sun > .999) sun = 1.0;
+        float blendSun = smoothstep(0.995, 1.0, sun);
+        //if (sun == 0.999)
+            //blendSun = 1.0;
+        fragColor.rgb = vec3(mix(fragColor.rgb, sunColor, blendSun));
+    }
 
     float t_y = -1e7;
     if (abs(dir.y) > 1e-6)
@@ -107,9 +128,11 @@ void main()
 
     if (t_y >= 0.001)
     {
-        float noise = snoise(vec3(0.2 * hitp.xz, sin(snoise(vec3(hitp.xz, u_time)))));
+        float noise = snoise(vec3(0.2 * hitp.xz, sin(snoise(vec3(0.5 * hitp.xz, 0.5 * u_time)))));
         vec3 colorA = vec3(.8, .3, .1);
         vec3 colorB = vec3(.9, .5, .2);
         fragColor.xyz = vec3(mix(colorA, colorB, noise));
     }
+
+    fragColor.a = 1.0;
 }

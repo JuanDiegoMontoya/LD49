@@ -109,7 +109,7 @@ int main()
   bunny->renderable.visible = true;
 
   Game::Sphere sphere{ 1.0f };
-  physics.AddObject(bunny, Game::MaterialType::OBJECT, &sphere);
+  physics.AddObject(bunny, Game::MaterialType::TERRAIN, &sphere);
 
   double prevFrame = glfwGetTime();
   while (!glfwWindowShouldClose(window))
@@ -129,7 +129,7 @@ int main()
     if (world.paused)
     {
       ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-      ImGui::Begin("Main Menu");
+      ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration);
       if (ImGui::Button("Resume"))
       {
         world.paused = false;
@@ -165,7 +165,7 @@ int main()
     {
       renderer.Submit(obj.transform, obj.mesh, obj.renderable);
     }
-    renderer.Draw(world.camera);
+    renderer.Draw(world.camera, dt);
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

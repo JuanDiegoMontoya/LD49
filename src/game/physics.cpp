@@ -373,10 +373,10 @@ struct PhysicsImpl
     pVel.x = tempXZvel[0];
     pVel.z = tempXZvel[1];
 
-    ImGui::Begin("dbg");
-    ImGui::Text("pVel: (%f, %f, %f)", pVel.x, pVel.y, pVel.z);
-    ImGui::Text("curSpeed: %f", glm::length(tempXZvel));
-    ImGui::End();
+    //ImGui::Begin("dbg");
+    //ImGui::Text("pVel: (%f, %f, %f)", pVel.x, pVel.y, pVel.z);
+    //ImGui::Text("curSpeed: %f", glm::length(tempXZvel));
+    //ImGui::End();
 
     pAccum += dt;
     float dtFixed = pTick;
@@ -393,6 +393,11 @@ struct PhysicsImpl
       if (cFlags & PxControllerCollisionFlag::eCOLLISION_DOWN || cFlags & PxControllerCollisionFlag::eCOLLISION_UP)
       {
         pVel.y = 0;
+
+        if (cFlags & PxControllerCollisionFlag::eCOLLISION_UP)
+        {
+          controller->move({ 0, -.01, 0 }, 0.001f, dtFixed, PxControllerFilters{});
+        }
 
         // jump if colliding below
         if (cFlags & PxControllerCollisionFlag::eCOLLISION_DOWN && world->io->KeysDown[GLFW_KEY_SPACE])

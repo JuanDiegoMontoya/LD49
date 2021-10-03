@@ -8,6 +8,7 @@
 
 enum class EntityType
 {
+  REGULAR,
   TERRAIN,
   EXPLOSIVE,
 };
@@ -42,4 +43,10 @@ struct Renderable
 struct PhysicsFlags
 {
   
+};
+
+struct Particle
+{
+  glm::vec3 velocity;
+  glm::vec3 acceleration;
 };

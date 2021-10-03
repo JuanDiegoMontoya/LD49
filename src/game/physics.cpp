@@ -7,6 +7,7 @@
 
 #include <array>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
@@ -149,6 +150,21 @@ struct PhysicsImpl
   ////////////////////////////////////////////////////////
   // objects
   ////////////////////////////////////////////////////////
+  const float gravity = -15;
+  const float jump = 8.2;
+  const float accelerationGround = 50.0f;
+  const float accelerationAir = 15.0f;
+  const float decelerationGround = 40.0f;
+  const float decelerationAir = 3.0f;
+  const float moveSpeed = 7.0;
+  const float maxXZSpeed = moveSpeed;
+
+  const float EXPLOSION_RECURSE_DIST = 3.0;
+  const float EXPLOSION_MAX_PLAYER_DIST = 15.0;
+  const float EXPLOSION_MAX_OBJECT_DIST = 10.0;
+  const float EXPLOSION_PLAYER_FORCE = 300.0;
+  const float EXPLOSION_OBJECT_FORCE = 100.0;
+
   const double tick = 1.0 / 50.0;
   bool resultsReady = true;
   double accumulator = 0;
@@ -156,8 +172,7 @@ struct PhysicsImpl
   World* world = nullptr;
   PxController* controller = nullptr;
   glm::vec3 pVel{};
-  //glm::vec3 pPos{};
-  //glm::vec3 pAccel{};
+  bool pExploded = false; // true when exploded until touching the ground again
   PxControllerCollisionFlags cFlags{};
   float pAccum = 0;
   const double pTick = 1.0 / 200.0;
@@ -179,6 +194,8 @@ struct PhysicsImpl
 
   std::unordered_map<physx::PxRigidActor*, Game::GameObject*> gActorToObject;
   std::unordered_map<Game::GameObject*, physx::PxRigidActor*> gObjectToActor;
+
+  std::unordered_set<PxRigidActor*> explodeList;
 
 
   ////////////////////////////////////////////////////////
@@ -249,6 +266,66 @@ struct PhysicsImpl
     delete gContactReportCallback;
   }
 
+  void FreeActor(PxRigidActor* actor)
+  {
+    assert(gActorToObject.contains(actor));
+    auto* object = gActorToObject[actor];
+    assert(gObjectToActor.contains(object));
+    gActorToObject.erase(actor);
+    gObjectToActor.erase(object);
+    actor->release();
+  }
+
+  void Explode(PxRigidActor* actor)
+  {
+    assert(gActorToObject.contains(actor));
+    auto* object = gActorToObject[actor];
+
+    printf("BOOM\n");
+
+    for (auto& [otherActor, otherObject] : gActorToObject)
+    {
+      if (otherActor == actor)
+      {
+        continue;
+      }
+
+      // explode other nearby explosives
+      float dist = glm::distance(otherObject->transform.position, object->transform.position);
+      if (otherObject->type == EntityType::EXPLOSIVE && dist < EXPLOSION_RECURSE_DIST)
+      {
+        explodeList.insert(otherActor);
+      }
+
+      // push nearby dynamic objects
+      if (dist < EXPLOSION_MAX_OBJECT_DIST)
+      {
+        if (auto* rd = otherActor->is<PxRigidDynamic>())
+        {
+          float forceStr = EXPLOSION_OBJECT_FORCE / (dist * dist);
+          glm::vec3 dir = glm::normalize(otherObject->transform.position - object->transform.position);
+          glm::vec3 force = dir * forceStr;
+          rd->addForce(toPxVec3(force), PxForceMode::eVELOCITY_CHANGE);
+        }
+      }
+    }
+
+    // push the player
+    float dist = glm::distance(world->camera.viewInfo.position, object->transform.position);
+    if (dist < EXPLOSION_MAX_PLAYER_DIST)
+    {
+      float forceStr = EXPLOSION_PLAYER_FORCE / (dist * dist);
+      glm::vec3 dir = glm::normalize(world->camera.viewInfo.position - object->transform.position);
+      glm::vec3 force = dir * forceStr;
+      pVel += force;
+      pExploded = true;
+      printf("joe");
+    }
+
+    world->entityManager.DestroyEntity(object->entity);
+    FreeActor(actor);
+  }
+
   Game::collider_t CookMesh(const GFX::Mesh& mesh)
   {
     assert(mesh.indices.size() % 3 == 0);
@@ -299,19 +376,6 @@ struct PhysicsImpl
 
   void SimulatePlayer(float dt)
   {
-    const float speed = 10;
-    const float gravity = -15;
-    const float jump = 8.2;
-    const float accelerationGround = 50.0f;
-    const float accelerationAir = 20.0f;
-    const float decelerationGround = 40.0f;
-    const float decelerationAir = 3.0f;
-    const float moveSpeed = 5.0;
-    const float maxXZSpeed = moveSpeed;
-
-    // "friction"
-    //pVel *= 0.98;
-
     // mouse controls
     auto& vi = world->camera.viewInfo;
     vi.yaw += world->io->MouseDelta.x * .003f;
@@ -347,19 +411,37 @@ struct PhysicsImpl
       xzForce = glm::normalize(xzForce) * curSpeed0;
     }
 
-    glm::vec2 tempXZvel{ pVel.x + xzForce[0], pVel.z + xzForce[1] };
     float curSpeed = glm::length(glm::vec2(pVel.x, pVel.z));
+    glm::vec2 tempXZvel{ pVel.x + xzForce[0], pVel.z + xzForce[1] };
     if (auto len = glm::length(tempXZvel); (len > curSpeed && len > maxXZSpeed))
     {
-      tempXZvel = tempXZvel / len * curSpeed;
+      if (!pExploded)
+      {
+        tempXZvel = tempXZvel / len * curSpeed;
+      }
+      else
+      {
+        // if speed is unbounded, prevent player from providing input to increase speed in unbounded direction
+        if (glm::dot(glm::normalize(xzForce), glm::normalize(glm::vec2(pVel.x, pVel.z))) > 0)
+        {
+          float diff = len - maxXZSpeed;
+          glm::vec2 negate = -glm::normalize(xzForce) * diff;
+          tempXZvel += negate;
+          //tempXZvel[0] = pVel.x;
+          //tempXZvel[1] = pVel.z;
+        }
+      }
     }
     pVel.x = tempXZvel[0];
     pVel.z = tempXZvel[1];
 
-    //ImGui::Begin("dbg");
+    ImGui::Begin("dbg");
     //ImGui::Text("pVel: (%f, %f, %f)", pVel.x, pVel.y, pVel.z);
     //ImGui::Text("curSpeed: %f", glm::length(tempXZvel));
-    //ImGui::End();
+    ImGui::Text("Exploded: %d", pExploded);
+    ImGui::End();
+
+    glm::vec3 startPosition = world->camera.viewInfo.position;
 
     pAccum += dt;
     float dtFixed = pTick;
@@ -372,7 +454,13 @@ struct PhysicsImpl
       float deceleration = 0;
 
       glm::vec3 pVel2 = pVel * dtFixed;
-      cFlags = controller->move({ pVel2.x, pVel2.y, pVel2.z }, 0.001f, dtFixed, PxControllerFilters{});
+      cFlags = controller->move({ pVel2.x, pVel2.y, pVel2.z }, 0.00001f, dtFixed, PxControllerFilters{});
+
+      if (cFlags & PxControllerCollisionFlag::eCOLLISION_DOWN)
+      {
+        pExploded = false;
+      }
+
       if (cFlags & PxControllerCollisionFlag::eCOLLISION_DOWN || cFlags & PxControllerCollisionFlag::eCOLLISION_UP)
       {
         pVel.y = 0;
@@ -399,7 +487,6 @@ struct PhysicsImpl
       // use friction if no movement was input, or if above max speed
       if (deceleration != 0 && (xzForce == glm::vec2(0) || glm::length(velXZ) > maxXZSpeed))
       {
-        //glm::vec2 dV = velXZ * glm::clamp((1.0f - decceleration) * dt, 0.001f, 1.0f); // exponential friction
         glm::vec2 dV;
         if (glm::all(glm::epsilonEqual(velXZ, glm::vec2(0), .001f)))
         {
@@ -420,14 +507,14 @@ struct PhysicsImpl
 
       // if the actual position is less than if you added velocity to previous position (i.e. you collided with something),
       // then lower the velocity correspondingly
-      //const auto& pe = controller->getPosition();
-      //glm::vec3 actualPosition{ pe.x, pe.y, pe.z };
-      //glm::vec3 actualVelocity = (actualPosition - startPosition) / dtFixed;
-      //if (glm::length(glm::vec2(actualVelocity.x, actualVelocity.z)) < glm::length(glm::vec2(velocity.x, velocity.z)))
-      //{
-      //  velocity.x = actualVelocity.x;
-      //  velocity.z = actualVelocity.z;
-      //}
+      const auto& pe = controller->getPosition();
+      glm::vec3 actualPosition{ pe.x, pe.y, pe.z };
+      glm::vec3 actualVelocity = (actualPosition - startPosition) / dtFixed;
+      if (glm::length(glm::vec2(actualVelocity.x, actualVelocity.z)) < glm::length(glm::vec2(pVel.x, pVel.z)))
+      {
+        pVel.x = actualVelocity.x;
+        pVel.z = actualVelocity.z;
+      }
 
       //printf("%f, %f, %f\n", velocity.x, velocity.y, velocity.z);
     }
@@ -442,6 +529,20 @@ struct PhysicsImpl
       world->camera.viewInfo.position = { p.x, p.y, p.z };
     }
 
+    // copy OG explode list, then clear it so we can add more stuff to explode in there
+    auto explodeListTemp = explodeList;
+    explodeList.clear();
+    for (auto* actor : explodeListTemp)
+    {
+      Explode(actor);
+
+      // erase self from explode list so it doesn't attempt to blow itself up next frame
+      if (explodeList.contains(actor))
+      {
+        explodeList.erase(actor);
+      }
+    }
+
     bool asdf = false;
     accumulator += dt;
     accumulator = glm::min(accumulator, tick * 20); // accumulate 20 steps of backlog
@@ -453,7 +554,7 @@ struct PhysicsImpl
         gScene->simulate(tick);
         resultsReady = false;
       }
-      if (gScene->fetchResults(false))
+      if (gScene->fetchResults(true))
       {
         resultsReady = true;
         accumulator -= tick;
@@ -563,7 +664,7 @@ struct PhysicsImpl
       actor = dynamic;
       if (object->type == EntityType::EXPLOSIVE)
       {
-        dynamic->setContactReportThreshold(25000.0);
+        dynamic->setContactReportThreshold(20000.0);
       }
       break;
     }
@@ -670,16 +771,27 @@ void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[m
       auto a = pairHeader.actors[0];
       auto b = pairHeader.actors[1];
 
+      // contact where the explosion threshold wasn't reached
       if (!(pair.events & PxPairFlag::eNOTIFY_THRESHOLD_FORCE_FOUND))
       {
         continue;
       }
-      //if ()
+
       if (auto ait = physics_->gActorToObject.find(a); ait != physics_->gActorToObject.end())
       {
-
+        if (ait->second->type == EntityType::EXPLOSIVE)
+        {
+          physics_->explodeList.insert(a);
+        }
       }
-      printf("%f\n", pair.contactImpulses[j]);
+
+      if (auto bit = physics_->gActorToObject.find(b); bit != physics_->gActorToObject.end())
+      {
+        if (bit->second->type == EntityType::EXPLOSIVE)
+        {
+          physics_->explodeList.insert(b);
+        }
+      }
     }
   }
 }

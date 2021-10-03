@@ -95,25 +95,40 @@ int main()
   world.io = &ImGui::GetIO();
   Game::Physics physics;
   GFX::Renderer renderer;
-  world.camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.2f, 400.0f);
+  world.camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.10f, 400.0f);
   world.camera.viewInfo.position = { -5.5, 3, 0 };
   physics.SetWorld(&world);
 
-  GFX::Mesh mesh = GFX::LoadMesh("sphere.obj");
+  GFX::Mesh sphereMesh = GFX::LoadMesh("sphere.obj");
+  GFX::Mesh cubeMesh = GFX::LoadMesh("cube.obj");
 
-  MeshHandle bunnyHandle = renderer.GenerateMeshHandle(mesh);
+  world.sphereMeshHandle = renderer.GenerateMeshHandle(sphereMesh);
+  world.cubeMeshHandle = renderer.GenerateMeshHandle(cubeMesh);
 
-  for (int i = 0; i < 5; i++)
+  for (int i = 0; i < 1; i++)
   {
     Game::GameObject* obj = world.entityManager.GetObject(world.entityManager.CreateEntity());
-    obj->transform.position = { 0, 5.5 * i, 0 };
+    obj->transform.position = { 0, 10 + i * 5, 0 };
     obj->transform.scale = glm::vec3(1);
-    obj->mesh = bunnyHandle;
+    obj->mesh = world.sphereMeshHandle;
     obj->renderable.visible = true;
     obj->type = EntityType::EXPLOSIVE;
 
     Game::Sphere sphere{ 1.0f };
     physics.AddObject(obj, Game::MaterialType::OBJECT, &sphere);
+  }
+
+  for (int i = 0; i < 1; i++)
+  {
+    Game::GameObject* obj = world.entityManager.GetObject(world.entityManager.CreateEntity());
+    obj->transform.position = { 0, 3 + i * 5, 2 };
+    obj->transform.scale = glm::vec3(1);
+    obj->mesh = world.cubeMeshHandle;
+    obj->renderable.visible = true;
+    obj->type = EntityType::REGULAR;
+
+    Game::Box box{ obj->transform.scale };
+    physics.AddObject(obj, Game::MaterialType::OBJECT, &box);
   }
 
   double prevFrame = glfwGetTime();
@@ -183,6 +198,6 @@ int main()
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 
-  //glfwTerminate();
+  glfwTerminate();
   return 0;
 }

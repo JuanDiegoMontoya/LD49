@@ -142,33 +142,37 @@ namespace GFX
       }
     }
 
-    //// TODO: replace with actual index buffer generation
-    //mesh.indices.resize(mesh.vertices.size());
-    //for (size_t i = 0; i < mesh.vertices.size(); i++)
-    //{
-    //  mesh.indices[i] = i;
-    //}
+
 
     Mesh mesh;
-
-    std::unordered_map<Vertex, index_t, hash<Vertex>> vertexToIndex;
-    index_t curIndex = 0;
-
-    for (const auto& vertex : vertices)
+    
+    mesh.vertices.resize(vertices.size());
+    mesh.indices.resize(vertices.size());
+    for (size_t i = 0; i < vertices.size(); i++)
     {
-      auto it = vertexToIndex.find(vertex);
-      if (it != vertexToIndex.end())
-      {
-        mesh.indices.push_back(it->second);
-      }
-      else
-      {
-        mesh.vertices.push_back(vertex);
-        mesh.indices.push_back(curIndex);
-      }
-
-      vertexToIndex[vertex] = curIndex++;
+      mesh.vertices[i] = vertices[i];
+      mesh.indices[i] = i;
     }
+
+    // TODO: fix this algorithm
+    //std::unordered_map<Vertex, index_t, hash<Vertex>> vertexToIndex;
+    //index_t curIndex = 0;
+
+    //for (const auto& vertex : vertices)
+    //{
+    //  auto it = vertexToIndex.find(vertex);
+    //  if (it != vertexToIndex.end())
+    //  {
+    //    mesh.indices.push_back(it->second);
+    //  }
+    //  else
+    //  {
+    //    mesh.vertices.push_back(vertex);
+    //    mesh.indices.push_back(curIndex);
+    //  }
+
+    //  vertexToIndex[vertex] = curIndex++;
+    //}
 
     return mesh;
   }

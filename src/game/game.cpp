@@ -29,8 +29,8 @@ namespace Game
     {
       if (objects[i]->entity == entity)
       {
-        objects.erase(objects.begin() + i);
         delete objects[i];
+        objects.erase(objects.begin() + i);
         return;
       }
     }

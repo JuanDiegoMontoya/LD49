@@ -10,4 +10,7 @@ struct World
   ImGuiIO* io{};
   GFX::Camera camera;
   Game::EntityManager entityManager;
+
+  MeshHandle sphereMeshHandle;
+  MeshHandle cubeMeshHandle;
 };

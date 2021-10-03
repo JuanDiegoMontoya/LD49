@@ -36,7 +36,8 @@ void main()
     vec3 sunLit = u_blendDay * diffuse * NoL * sun + sun * 0.1;
 
     vec3 groundColor = vec3(125.0 / 255, 46.0 / 255, 30.0 / 255);
-    vec3 groundLit = groundColor * max(0.0, dot(-N, vec3(0, 1, 0)));
+    float groundDot = clamp(dot(-N, vec3(0, 1, 0)) + .3, 0.0, 1.0);
+    vec3 groundLit = groundColor * groundDot;
 
     vec3 lit = sunLit + groundLit;
 

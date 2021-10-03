@@ -4,8 +4,23 @@ namespace Game
 {
   entity_t EntityManager::CreateEntity()
   {
-    objects.emplace_back();
-    return ++nextEntity;
+    GameObject obj{};
+    obj.entity = ++nextEntity;
+    objects.push_back(obj);
+    return nextEntity;
+  }
+
+  GameObject* EntityManager::GetObject(entity_t entity)
+  {
+    for (auto& obj : objects)
+    {
+      if (obj.entity == entity)
+      {
+        return &obj;
+      }
+    }
+
+    return nullptr;
   }
 
   void EntityManager::DestroyEntity(entity_t entity)

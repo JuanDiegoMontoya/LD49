@@ -27,9 +27,9 @@ set(source_files
 	src/main.cpp
 	src/components.cpp
 	src/gfx/mesh.cpp
+	src/gfx/camera.cpp
 	src/gfx/shader.cpp
 	src/gfx/renderer.cpp
-	src/gfx/camera.cpp
 	src/game/game.cpp
 	src/game/physics.cpp
 )
@@ -37,12 +37,13 @@ set(source_files
 set(header_files
 	src/components.h
 	src/macros.h
+	src/world.h
+	src/gfx/camera.h
 	src/gfx/mesh.h
 	src/gfx/shader.h
 	src/gfx/renderer.h
-	src/gfx/camera.h
-	src/utility/transparent_string_hash.h
 	src/utility/defer.h
+	src/utility/transparent_string_hash.h
 	src/game/game.h
 	src/game/physics.h
 )

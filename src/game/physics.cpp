@@ -1,4 +1,9 @@
 #include "physics.h"
+#include "game.h"
+#include "components.h"
+#include "gfx/mesh.h"
+#include "gfx/camera.h"
+#include "world.h"
 
 #include <array>
 #include <unordered_map>
@@ -6,6 +11,10 @@
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtx/quaternion.hpp>
+
+#include <GLFW/glfw3.h>
+
+#include <imgui.h>
 
 // hack to make physx happy
 #if !NDEBUG
@@ -113,7 +122,7 @@ namespace
   class ErrorCallback : public PxDefaultErrorCallback
   {
   public:
-    virtual void reportError(PxErrorCode::Enum code, const char* message, const char* file, int line)
+    void reportError(PxErrorCode::Enum code, const char* message, const char* file, int line) override
     {
       PxDefaultErrorCallback::reportError(code, message, file, line);
     }
@@ -158,6 +167,17 @@ struct PhysicsImpl
   // objects
   ////////////////////////////////////////////////////////
   const double tick = 1.0 / 50.0;
+  bool resultsReady = true;
+  double accumulator = 0;
+
+  World* world = nullptr;
+  PxController* controller = nullptr;
+  glm::vec3 pVel{};
+  //glm::vec3 pPos{};
+  //glm::vec3 pAccel{};
+  PxControllerCollisionFlags cFlags{};
+  float pAccum = 0;
+  const double pTick = 1.0 / 200.0;
 
   physx::PxDefaultAllocator gAllocator;
   ErrorCallback gErrorCallback;
@@ -176,8 +196,6 @@ struct PhysicsImpl
 
   std::unordered_map<physx::PxRigidActor*, Game::GameObject*> gActorToObject;
   std::unordered_map<Game::GameObject*, physx::PxRigidActor*> gObjectToActor;
-
-  std::unordered_map<physx::PxController*, Game::GameObject*> gEntityControllers;
 
 
   ////////////////////////////////////////////////////////
@@ -276,10 +294,166 @@ struct PhysicsImpl
     return aTriangleMesh;
   }
 
+  void SetWorld(World* wld)
+  {
+    assert(world == nullptr && "Only call SetWorld once!");
+    
+    world = wld;
+
+    PxCapsuleControllerDesc desc;
+    desc.upDirection = { 0, 1, 0 };
+    desc.density = 10.0f;
+    desc.stepOffset = 0.1f;
+    desc.material = gMaterials[(int)Game::MaterialType::PLAYER];
+    desc.height = 2.0f;
+    desc.radius = 0.7f;
+    desc.contactOffset = 0.1f;
+
+    controller = gCManager->createController(desc);
+    auto vp = world->camera.viewInfo.position;
+    controller->setPosition({ vp.x, vp.y, vp.z });
+  }
+
+  void SimulatePlayer(float dt)
+  {
+    const float speed = 10;
+    const float gravity = -15;
+    const float jump = 8.2;
+    const float accelerationGround = 50.0f;
+    const float accelerationAir = 20.0f;
+    const float decelerationGround = 40.0f;
+    const float decelerationAir = 3.0f;
+    const float moveSpeed = 5.0;
+    const float maxXZSpeed = moveSpeed;
+
+    // "friction"
+    //pVel *= 0.98;
+
+    // mouse controls
+    auto& vi = world->camera.viewInfo;
+    vi.yaw += world->io->MouseDelta.x * .003f;
+    vi.pitch = glm::clamp(vi.pitch - world->io->MouseDelta.y * .003f, glm::radians(-89.0f), glm::radians(89.0f));
+
+    const auto fwd = world->camera.viewInfo.GetForwardDir();
+    const glm::vec2 xzForward = glm::normalize(glm::vec2(fwd.x, fwd.z));
+    const glm::vec2 xzRight = glm::normalize(glm::vec2(-xzForward.y, xzForward.x));
+
+    float acceleration = cFlags & PxControllerCollisionFlag::eCOLLISION_DOWN ? accelerationGround : accelerationAir;
+    float curSpeed0 = acceleration * dt;
+
+    glm::vec2 xzForce{ 0 };
+    if (world->io->KeysDown[GLFW_KEY_W])
+    {
+      xzForce += xzForward * moveSpeed;
+    }
+    if (world->io->KeysDown[GLFW_KEY_S])
+    {
+      xzForce -= xzForward * moveSpeed;
+    }
+    if (world->io->KeysDown[GLFW_KEY_D])
+    {
+      xzForce += xzRight * moveSpeed;
+    }
+    if (world->io->KeysDown[GLFW_KEY_A])
+    {
+      xzForce -= xzRight * moveSpeed;
+    }
+
+    if (xzForce != glm::vec2(0))
+    {
+      xzForce = glm::normalize(xzForce) * curSpeed0;
+    }
+
+    glm::vec2 tempXZvel{ pVel.x + xzForce[0], pVel.z + xzForce[1] };
+    float curSpeed = glm::length(glm::vec2(pVel.x, pVel.z));
+    if (auto len = glm::length(tempXZvel); (len > curSpeed && len > maxXZSpeed))
+    {
+      tempXZvel = tempXZvel / len * curSpeed;
+    }
+    pVel.x = tempXZvel[0];
+    pVel.z = tempXZvel[1];
+
+    ImGui::Begin("dbg");
+    ImGui::Text("pVel: (%f, %f, %f)", pVel.x, pVel.y, pVel.z);
+    ImGui::Text("curSpeed: %f", glm::length(tempXZvel));
+    ImGui::End();
+
+    pAccum += dt;
+    float dtFixed = pTick;
+    while (pAccum > pTick)
+    {
+      pAccum -= pTick;
+
+      pVel.y += gravity * dtFixed;
+      glm::vec2 velXZ{ pVel.x, pVel.z };
+      float deceleration = 0;
+
+      glm::vec3 pVel2 = pVel * dtFixed;
+      cFlags = controller->move({ pVel2.x, pVel2.y, pVel2.z }, 0.001f, dtFixed, PxControllerFilters{});
+      if (cFlags & PxControllerCollisionFlag::eCOLLISION_DOWN || cFlags & PxControllerCollisionFlag::eCOLLISION_UP)
+      {
+        pVel.y = 0;
+
+        // jump if colliding below
+        if (cFlags & PxControllerCollisionFlag::eCOLLISION_DOWN && world->io->KeysDown[GLFW_KEY_SPACE])
+        {
+          pVel.y = jump;
+        }
+
+        deceleration = decelerationGround;
+      }
+      else
+      {
+        // use air friction
+        deceleration = decelerationAir;
+      }
+
+      // use friction if no movement was input, or if above max speed
+      if (deceleration != 0 && (xzForce == glm::vec2(0) || glm::length(velXZ) > maxXZSpeed))
+      {
+        //glm::vec2 dV = velXZ * glm::clamp((1.0f - decceleration) * dt, 0.001f, 1.0f); // exponential friction
+        glm::vec2 dV;
+        if (glm::all(glm::epsilonEqual(velXZ, glm::vec2(0), .001f)))
+        {
+          dV = { 0,0 };
+        }
+        else
+        {
+          dV = glm::clamp(glm::abs(glm::normalize(velXZ)) * deceleration * dtFixed, 0.001f, 1.0f);// linear friction
+        }
+        velXZ -= glm::min(glm::abs(dV), glm::abs(velXZ)) * glm::sign(velXZ);
+      }
+      pVel.x = velXZ.x;
+      pVel.z = velXZ.y;
+
+      if (cFlags & PxControllerCollisionFlag::eCOLLISION_SIDES)
+      {
+      }
+
+      // if the actual position is less than if you added velocity to previous position (i.e. you collided with something),
+      // then lower the velocity correspondingly
+      //const auto& pe = controller->getPosition();
+      //glm::vec3 actualPosition{ pe.x, pe.y, pe.z };
+      //glm::vec3 actualVelocity = (actualPosition - startPosition) / dtFixed;
+      //if (glm::length(glm::vec2(actualVelocity.x, actualVelocity.z)) < glm::length(glm::vec2(velocity.x, velocity.z)))
+      //{
+      //  velocity.x = actualVelocity.x;
+      //  velocity.z = actualVelocity.z;
+      //}
+
+      //printf("%f, %f, %f\n", velocity.x, velocity.y, velocity.z);
+    }
+  }
+
   void Simulate(float dt)
   {
-    static bool resultsReady = true;
-    static double accumulator = 0;
+    if (controller && world)
+    {
+      SimulatePlayer(dt);
+      const auto& p = controller->getPosition();
+      world->camera.viewInfo.position = { p.x, p.y, p.z };
+    }
+
     bool asdf = false;
     accumulator += dt;
     accumulator = glm::min(accumulator, tick * 20); // accumulate 20 steps of backlog
@@ -443,6 +617,11 @@ namespace Game
   //{
   //  return impl_->CookMesh(mesh);
   //}
+
+  void Physics::SetWorld(World* world)
+  {
+    impl_->SetWorld(world);
+  }
 
   void Physics::Simulate(float dt)
   {

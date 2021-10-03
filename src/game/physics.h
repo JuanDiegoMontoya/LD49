@@ -1,14 +1,27 @@
 #pragma once
 
 #include "macros.h"
-#include "game.h"
-#include "components.h"
-#include "gfx/mesh.h"
+
+#include <glm/vec3.hpp>
 
 struct PhysicsImpl;
+struct Transform;
+
+struct World;
+
+namespace GFX
+{
+  struct View;
+  struct Mesh;
+  struct Camera;
+}
+
+struct ImGuiIO;
 
 namespace Game
 {
+  struct GameObject;
+
   enum class MaterialType
   {
     PLAYER,  // character controller
@@ -31,6 +44,7 @@ namespace Game
     NOCOPY_NOMOVE(Physics)
 
     //collider_t CookMesh(const GFX::Mesh& mesh);
+    void SetWorld(World* world);
     void Simulate(float dt);
 
     //void AddObject(GameObject* object, MaterialType material, collider_t mesh);

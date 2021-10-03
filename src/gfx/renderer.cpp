@@ -152,6 +152,7 @@ namespace GFX
     ~RendererImpl()
     {
       glDeleteVertexArrays(1, &emptyVao);
+      glDeleteVertexArrays(1, &standardVao);
     }
 
     void GL_ResetState()
@@ -234,6 +235,11 @@ namespace GFX
 
       for (const auto& [transform, mesh, renderable] : renderables)
       {
+        if (!renderable.visible)
+        {
+          continue;
+        }
+
         glm::mat4 model = transform.GetModel();
 
         standardShader.SetMat4("u_model", model);

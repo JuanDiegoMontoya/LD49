@@ -25,6 +25,7 @@ struct MeshHandle
 struct Renderable
 {
   // flags or sum'
+  bool visible : 1 = false;
 };
 
 //enum class PhysicsType

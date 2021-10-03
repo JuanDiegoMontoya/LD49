@@ -20,6 +20,7 @@
 #include "gfx/camera.h"
 #include "game/game.h"
 #include "game/physics.h"
+#include "world.h"
 
 struct WindowCreateInfo
 {
@@ -51,7 +52,7 @@ GLFWwindow* CreateWindow(const WindowCreateInfo& createInfo)
   glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
   const GLFWvidmode* videoMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-  GLFWwindow* window = glfwCreateWindow(createInfo.width, createInfo.height, "Top Text", nullptr, nullptr);
+  GLFWwindow* window = glfwCreateWindow(createInfo.width, createInfo.height, "Top Texplosion", nullptr, nullptr);
 
   if (!window)
   {
@@ -79,7 +80,7 @@ int main()
   InitOpenGL();
 
   ImGui::CreateContext();
-  ImGui_ImplGlfw_InitForOpenGL(window, false);
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init();
   ImGui::StyleColorsDark();
   
@@ -88,60 +89,83 @@ int main()
 
   glViewport(0, 0, frameWidth, frameHeight);
 
-  Game::EntityManager entityManager;
+  World world;
+  //Game::EntityManager entityManager;
+  //GFX::Camera camera;
+  world.io = &ImGui::GetIO();
   Game::Physics physics;
   GFX::Renderer renderer;
-  GFX::Camera camera;
-  camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.3f, 100.0f);
-  camera.viewInfo.position = { -5.5, 1, 0 };
+  world.camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.3f, 100.0f);
+  world.camera.viewInfo.position = { -5.5, 3, 0 };
+  physics.SetWorld(&world);
 
   GFX::Mesh mesh = GFX::LoadMesh("sphere.obj");
 
   MeshHandle bunnyHandle = renderer.GenerateMeshHandle(mesh);
-  Game::GameObject bunny;
-  bunny.entity = entityManager.CreateEntity();
-  bunny.transform.position = { 0, 5.5, 0 };
-  bunny.transform.scale = glm::vec3(1);
-  bunny.mesh = bunnyHandle;
+  Game::GameObject* bunny = world.entityManager.GetObject(world.entityManager.CreateEntity());
+  bunny->transform.position = { 0, 5.5, 0 };
+  bunny->transform.scale = glm::vec3(1);
+  bunny->mesh = bunnyHandle;
+  bunny->renderable.visible = true;
 
   Game::Sphere sphere{ 1.0f };
-  physics.AddObject(&bunny, Game::MaterialType::OBJECT, &sphere);
-  
-  //entityManager.GetObject(bunny.entity) = bunny;
+  physics.AddObject(bunny, Game::MaterialType::OBJECT, &sphere);
 
   double prevFrame = glfwGetTime();
   while (!glfwWindowShouldClose(window))
   {
-    double curFrame = glfwGetTime();
-    double dt = curFrame - prevFrame;
-    prevFrame = curFrame;
+    glfwPollEvents();
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    glfwPollEvents();
-
     // press escape to close window
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    if (world.io->KeysDownDuration[GLFW_KEY_ESCAPE] == 0.0f)
     {
-      glfwSetWindowShouldClose(window, true);
+      world.paused = !world.paused;
     }
 
-    // some ImGui stuff for testing
-    ImGui::Begin("joe");
-    ImGui::Text("Aloha");
-    ImGui::SliderFloat("Pitch", &camera.viewInfo.pitch, -3.14f / 2, 3.14f / 2);
-    ImGui::SliderFloat("Yaw", &camera.viewInfo.yaw, -3.14f, 3.14f);
-    ImGui::End();
+    if (world.paused)
+    {
+      ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+      ImGui::Begin("Main Menu");
+      if (ImGui::Button("Resume"))
+      {
+        world.paused = false;
+      }
 
+      if (ImGui::Button("Quit"))
+      {
+        glfwSetWindowShouldClose(window, true);
+      }
+      ImGui::End();
+      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+    else
+    {
+      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
 
-    physics.Simulate(dt);
+    double curFrame = glfwGetTime();
+    double dt = curFrame - prevFrame;
+    prevFrame = curFrame;
 
-    //camera.viewInfo.yaw += dt;
-    //bunny.transform.rotation *= glm::rotate(glm::quat(1, 0, 0, 0), static_cast<float>(dt), { 0, 1, 0 });
-    renderer.Submit(bunny.transform, bunny.mesh, bunny.renderable);
-    renderer.Draw(camera);
+    if (world.paused)
+    {
+      dt = 0;
+    }
+
+    if (!world.paused)
+    {
+      physics.Simulate(dt);
+    }
+
+    for (const auto& obj : world.entityManager.GetObjects())
+    {
+      renderer.Submit(obj.transform, obj.mesh, obj.renderable);
+    }
+    renderer.Draw(world.camera);
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

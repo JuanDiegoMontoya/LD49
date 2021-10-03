@@ -29,7 +29,7 @@ namespace Game
     NOCOPY_NOMOVE(EntityManager)
 
     entity_t CreateEntity();
-    GameObject& GetObject(entity_t entity);
+    GameObject* GetObject(entity_t entity);
     auto& GetObjects() { return objects; }
     void DestroyEntity(entity_t entity);
 

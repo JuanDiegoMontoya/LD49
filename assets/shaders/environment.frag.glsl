@@ -104,7 +104,7 @@ void main()
     vec3 skyLow = vec3(145.0 / 255, 69.0 / 255, 41.0 / 255);
     vec3 skyHigh = mix(skyNight, skyDay, u_blendDay); // no reference intended
     float blendSky = dir.y;
-    fragColor.rgb = mix(skyLow, skyHigh, min(1.0, blendSky * 2.0));
+    fragColor.rgb = mix(skyLow, skyHigh, min(1.0, blendSky * 3.0));
 
 
     float sun = dot(u_sunDir, -dir);

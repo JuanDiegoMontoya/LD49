@@ -105,18 +105,7 @@ int main()
   world.sphereMeshHandle = renderer.GenerateMeshHandle(sphereMesh);
   world.cubeMeshHandle = renderer.GenerateMeshHandle(cubeMesh);
 
-  for (int i = 0; i < 1; i++)
-  {
-    Game::GameObject* obj = world.entityManager.GetObject(world.entityManager.CreateEntity());
-    obj->transform.position = { 0, 10 + i * 5, 0 };
-    obj->transform.scale = glm::vec3(1);
-    obj->mesh = world.sphereMeshHandle;
-    obj->renderable.visible = true;
-    obj->type = EntityType::EXPLOSIVE;
-
-    Game::Sphere sphere{ 1.0f };
-    physics.AddObject(obj, Game::MaterialType::OBJECT, &sphere);
-  }
+  world.MakeExplosive({ 0, 5, 0 }, 1.0, &physics);
 
   for (int i = 0; i < 1; i++)
   {
@@ -146,9 +135,16 @@ int main()
       world.paused = !world.paused;
     }
 
+    // enable cheats
+    if (world.io->KeysDownDuration[GLFW_KEY_F11] == 0.0f)
+    {
+      world.cheats = true;
+    }
+
     if (world.paused)
     {
       ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+      ImGui::SetNextWindowSize(ImVec2(100, 100));
       ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration);
       if (ImGui::Button("Resume"))
       {
@@ -165,6 +161,27 @@ int main()
     else
     {
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
+
+    if (world.cheats)
+    {
+      ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoBackground;
+      ImGui::Begin("Cheats window", nullptr, flags);
+      ImGui::Text("Cheats Active!");
+      ImGui::End();
+
+      if (!world.paused)
+      {
+        if (world.io->KeysDownDuration[GLFW_KEY_V] == 0)
+        {
+          float dist = 5;
+          glm::vec3 pos = world.camera.viewInfo.position + world.camera.viewInfo.GetForwardDir() * dist;
+          world.MakeExplosive(pos, 1, &physics);
+        }
+      }
     }
 
     double curFrame = glfwGetTime();

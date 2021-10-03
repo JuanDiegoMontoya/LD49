@@ -159,11 +159,11 @@ struct PhysicsImpl
   const float moveSpeed = 7.0;
   const float maxXZSpeed = moveSpeed;
 
-  const float EXPLOSION_RECURSE_DIST = 3.0;
+  const float EXPLOSION_RECURSE_DIST = 10.0;
   const float EXPLOSION_MAX_PLAYER_DIST = 15.0;
   const float EXPLOSION_MAX_OBJECT_DIST = 10.0;
-  const float EXPLOSION_PLAYER_FORCE = 300.0;
-  const float EXPLOSION_OBJECT_FORCE = 100.0;
+  const float EXPLOSION_PLAYER_FORCE = 50.0;
+  const float EXPLOSION_OBJECT_FORCE = 30.0;
 
   const double tick = 1.0 / 50.0;
   bool resultsReady = true;
@@ -302,7 +302,7 @@ struct PhysicsImpl
       {
         if (auto* rd = otherActor->is<PxRigidDynamic>())
         {
-          float forceStr = EXPLOSION_OBJECT_FORCE / (dist * dist);
+          float forceStr = glm::min(EXPLOSION_OBJECT_FORCE / (dist), EXPLOSION_OBJECT_FORCE);
           glm::vec3 dir = glm::normalize(otherObject->transform.position - object->transform.position);
           glm::vec3 force = dir * forceStr;
           rd->addForce(toPxVec3(force), PxForceMode::eVELOCITY_CHANGE);
@@ -314,7 +314,7 @@ struct PhysicsImpl
     float dist = glm::distance(world->camera.viewInfo.position, object->transform.position);
     if (dist < EXPLOSION_MAX_PLAYER_DIST)
     {
-      float forceStr = EXPLOSION_PLAYER_FORCE / (dist * dist);
+      float forceStr = glm::min(EXPLOSION_PLAYER_FORCE / (dist), EXPLOSION_PLAYER_FORCE);
       glm::vec3 dir = glm::normalize(world->camera.viewInfo.position - object->transform.position);
       glm::vec3 force = dir * forceStr;
       pVel += force;
@@ -422,9 +422,9 @@ struct PhysicsImpl
       else
       {
         // if speed is unbounded, prevent player from providing input to increase speed in unbounded direction
-        if (glm::dot(glm::normalize(xzForce), glm::normalize(glm::vec2(pVel.x, pVel.z))) > 0)
+        if (glm::dot(glm::normalize(tempXZvel), glm::normalize(glm::vec2(pVel.x, pVel.z))) > 0)
         {
-          float diff = len - maxXZSpeed;
+          float diff = len - curSpeed;
           glm::vec2 negate = -glm::normalize(xzForce) * diff;
           tempXZvel += negate;
           //tempXZvel[0] = pVel.x;
@@ -435,11 +435,11 @@ struct PhysicsImpl
     pVel.x = tempXZvel[0];
     pVel.z = tempXZvel[1];
 
-    ImGui::Begin("dbg");
+    //ImGui::Begin("dbg");
     //ImGui::Text("pVel: (%f, %f, %f)", pVel.x, pVel.y, pVel.z);
     //ImGui::Text("curSpeed: %f", glm::length(tempXZvel));
-    ImGui::Text("Exploded: %d", pExploded);
-    ImGui::End();
+    //ImGui::Text("Exploded: %d", pExploded);
+    //ImGui::End();
 
     glm::vec3 startPosition = world->camera.viewInfo.position;
 

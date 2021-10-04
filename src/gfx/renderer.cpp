@@ -222,15 +222,15 @@ namespace GFX
 
     void Draw(const Camera& camera, float dt)
     {
-      gTime += dt / 10;
+      gTime += dt;
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       glEnable(GL_FRAMEBUFFER_SRGB);
 
       DrawRenderables(camera);
       DrawEnvironment(camera);
 
-      sunDir.y = -glm::sin(gTime);
-      sunDir.x = glm::cos(gTime);
+      sunDir.y = -glm::sin(gTime / 10);
+      sunDir.x = glm::cos(gTime / 10);
       sunDir.z = 0.8;
       sunDir = glm::normalize(sunDir);
       blendDay = glm::max(-sunDir.y * 2, 0.0f);

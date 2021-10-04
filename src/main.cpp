@@ -162,6 +162,11 @@ int main()
     ImGui::Text("F (release): place bomb");
     ImGui::End();
 
+    ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.1f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::Begin("Game window 2", nullptr, flags);
+    ImGui::Text("%s", world.currentLevel->name);
+    ImGui::End();
+
     double curFrame = glfwGetTime();
     double dt = curFrame - prevFrame;
     prevFrame = curFrame;

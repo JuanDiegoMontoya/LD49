@@ -36,8 +36,8 @@ GLuint CompileShader(GLenum stage, std::string_view source)
   glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
   if (!success)
   {
-    GLsizei infoLength = 1;
-    glGetShaderInfoLog(shader, 0, &infoLength, nullptr);
+    GLsizei infoLength = 512;
+    //glGetShaderInfoLog(shader, 0, &infoLength, nullptr);
     std::string infoLog(infoLength + 1, '\0');
     glGetShaderInfoLog(shader, infoLength, nullptr, infoLog.data());
 

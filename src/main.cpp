@@ -90,35 +90,35 @@ int main()
   glViewport(0, 0, frameWidth, frameHeight);
 
   World world;
+  GFX::Renderer renderer;
+  GFX::Mesh sphereMesh = GFX::LoadMesh("sphere.obj");
+  GFX::Mesh cubeMesh = GFX::LoadMesh("cube.obj");
+  world.sphereMeshHandle = renderer.GenerateMeshHandle(sphereMesh);
+  world.cubeMeshHandle = renderer.GenerateMeshHandle(cubeMesh);
   //Game::EntityManager entityManager;
   //GFX::Camera camera;
   world.io = &ImGui::GetIO();
   Game::Physics physics;
-  GFX::Renderer renderer;
   world.camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.10f, 400.0f);
   world.camera.viewInfo.position = { -5.5, 3, 0 };
   physics.SetWorld(&world);
 
-  GFX::Mesh sphereMesh = GFX::LoadMesh("sphere.obj");
-  GFX::Mesh cubeMesh = GFX::LoadMesh("cube.obj");
 
-  world.sphereMeshHandle = renderer.GenerateMeshHandle(sphereMesh);
-  world.cubeMeshHandle = renderer.GenerateMeshHandle(cubeMesh);
 
-  world.MakeExplosive({ 0, 5, 0 }, 1.0, &physics);
+  world.MakeExplosive({ 0, 5, 0 }, &physics);
 
-  for (int i = 0; i < 1; i++)
-  {
-    Game::GameObject* obj = world.entityManager.GetObject(world.entityManager.CreateEntity());
-    obj->transform.position = { 0, 3 + i * 5, 2 };
-    obj->transform.scale = glm::vec3(1);
-    obj->mesh = world.cubeMeshHandle;
-    obj->renderable.visible = true;
-    obj->type = EntityType::REGULAR;
+  //for (int i = 0; i < 1; i++)
+  //{
+  //  Game::GameObject* obj = world.entityManager.GetObject(world.entityManager.CreateEntity());
+  //  obj->transform.position = { 0, 3 + i * 5, 2 };
+  //  obj->transform.scale = glm::vec3(1);
+  //  obj->mesh = world.cubeMeshHandle;
+  //  obj->renderable.visible = true;
+  //  obj->type = EntityType::REGULAR;
 
-    Game::Box box{ obj->transform.scale };
-    physics.AddObject(obj, Game::MaterialType::OBJECT, &box);
-  }
+  //  Game::Box box{ obj->transform.scale };
+  //  physics.AddObject(obj, Game::MaterialType::OBJECT, &box);
+  //}
 
   double prevFrame = glfwGetTime();
   while (!glfwWindowShouldClose(window))
@@ -163,15 +163,15 @@ int main()
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
 
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse |
+      ImGuiWindowFlags_NoDecoration |
+      ImGuiWindowFlags_NoResize |
+      ImGuiWindowFlags_NoBackground |
+      ImGuiWindowFlags_AlwaysAutoResize;
+    ImGui::Begin("Game window", nullptr, flags);
     if (world.cheats)
     {
-      ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoDecoration |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoBackground;
-      ImGui::Begin("Cheats window", nullptr, flags);
       ImGui::Text("Cheats Active!");
-      ImGui::End();
 
       if (!world.paused)
       {
@@ -179,10 +179,15 @@ int main()
         {
           float dist = 5;
           glm::vec3 pos = world.camera.viewInfo.position + world.camera.viewInfo.GetForwardDir() * dist;
-          world.MakeExplosive(pos, 1, &physics);
+          world.MakeExplosive(pos, &physics);
         }
       }
     }
+    ImGui::Text("Bomb inventory: %d", world.bombInventory);
+    ImGui::Text("E: pickup bomb");
+    ImGui::Text("Hold F: show bomb placement");
+    ImGui::Text("Release F: place bomb");
+    ImGui::End();
 
     double curFrame = glfwGetTime();
     double dt = curFrame - prevFrame;

@@ -33,6 +33,8 @@ struct Renderable
 {
   // flags or sum'
   bool visible : 1 = false;
+  glm::vec4 color{ 1.0f };
+  glm::vec3 glow{ 0.0f };
 };
 
 //enum class PhysicsType

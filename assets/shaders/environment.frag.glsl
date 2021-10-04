@@ -111,18 +111,16 @@ void main()
     if (sun > .995)
     {
         vec3 sunColor = vec3(255.0 / 255, 253.0 / 255, 163.0 / 255);
-        //sun = (sun - 0.99) * 100;
-        //float blendSun = smoothstep(0.0, .1, sun);
         if (sun > .999) sun = 1.0;
         float blendSun = smoothstep(0.995, 1.0, sun);
-        //if (sun == 0.999)
-            //blendSun = 1.0;
         fragColor.rgb = vec3(mix(fragColor.rgb, sunColor, blendSun));
     }
 
     float t_y = -1e7;
     if (abs(dir.y) > 1e-6)
+    {
         t_y = -u_viewPos.y / dir.y;
+    }
 
     vec3 hitp = u_viewPos + dir * t_y;
 

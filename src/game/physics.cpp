@@ -8,6 +8,7 @@
 #include <array>
 #include <unordered_map>
 #include <unordered_set>
+#include <algorithm>
 
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
@@ -144,12 +145,14 @@ private:
   void onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs);
 };
 
-
 struct PhysicsImpl
 {
   ////////////////////////////////////////////////////////
   // objects
   ////////////////////////////////////////////////////////
+  Game::GameObject* placementIndicator{};
+  Game::Physics* physics{};
+
   const float gravity = -15;
   const float jump = 8.2;
   const float accelerationGround = 50.0f;
@@ -226,6 +229,7 @@ struct PhysicsImpl
     sceneDesc.filterShader = contactReportFilterShader;
     sceneDesc.simulationEventCallback = gContactReportCallback;
     sceneDesc.solverType = PxSolverType::ePGS; // faster than eTGS
+    //sceneDesc.flags |= PxSceneFlag::
     //sceneDesc.flags |= PxSceneFlag::eREQUIRE_RW_LOCK;
 
     gScene = gPhysics->createScene(sceneDesc);
@@ -281,7 +285,7 @@ struct PhysicsImpl
     assert(gActorToObject.contains(actor));
     auto* object = gActorToObject[actor];
 
-    printf("BOOM\n");
+    // TODO: make a bunch of tiny spheres shooting out in different directions
 
     for (auto& [otherActor, otherObject] : gActorToObject)
     {
@@ -319,7 +323,6 @@ struct PhysicsImpl
       glm::vec3 force = dir * forceStr;
       pVel += force;
       pExploded = true;
-      printf("joe");
     }
 
     world->entityManager.DestroyEntity(object->entity);
@@ -372,6 +375,10 @@ struct PhysicsImpl
     controller = gCManager->createController(desc);
     auto vp = world->camera.viewInfo.position;
     controller->setPosition({ vp.x, vp.y, vp.z });
+
+    // make placement indicator
+    placementIndicator = world->MakeBox({ 0, 0, 0 }, glm::vec3(EXPLOSIVE_SIZE));
+    placementIndicator->renderable.color = glm::vec4(0.5, 0.5, 0.5, 1.0);
   }
 
   void SimulatePlayer(float dt)
@@ -515,8 +522,75 @@ struct PhysicsImpl
         pVel.x = actualVelocity.x;
         pVel.z = actualVelocity.z;
       }
+    }
 
-      //printf("%f, %f, %f\n", velocity.x, velocity.y, velocity.z);
+    for (auto* object : world->entityManager.GetObjects())
+    {
+      if (object->type == EntityType::EXPLOSIVE)
+      {
+        object->renderable.glow = { 0, 0, 0 };
+      }
+    }
+
+    {
+      // scene query to see if we're looking at an explosive
+      PxQueryFilterData filterData(PxQueryFlag::eDYNAMIC);
+      PxRaycastHit hitBuffer[64];
+      PxRaycastBuffer hit(hitBuffer, 64);
+      bool status = gScene->raycast(toPxVec3(vi.position), toPxVec3(vi.GetForwardDir()),
+        SELECT_DISTANCE, hit, PxHitFlag::eDEFAULT, filterData);
+      if (status && hit.getNbAnyHits() > 1)
+      {
+        std::vector<PxRaycastHit> hits;
+        for (int i = 0; i < hit.getNbAnyHits(); i++)
+        {
+          hits.push_back(hit.getAnyHit(i));
+        }
+        std::sort(hits.begin(), hits.end(), [](const auto& a, const auto& b) { return a.distance < b.distance; });
+        const auto& closest = hits[1];
+
+        if (gActorToObject.contains(closest.actor))
+        {
+          auto* obj = gActorToObject[closest.actor];
+          if (obj->type == EntityType::EXPLOSIVE)
+          {
+            obj->renderable.glow = SELECT_GLOW;
+          }
+        }
+      }
+    }
+
+    {
+      placementIndicator->renderable.visible = false;
+      placementIndicator->transform.position = vi.position + vi.GetForwardDir() * SELECT_DISTANCE;
+
+      // show bomb outline if holding F
+      if (world->io->KeysDown[GLFW_KEY_F] && world->bombInventory > 0)
+      {
+        placementIndicator->renderable.visible = true;
+        placementIndicator->renderable.glow = PLACEMENT_VALID;
+
+        // do query to show if valid placement position (can't figure out why this always returns false)
+        //PxOverlapBuffer hit;
+        //PxBoxGeometry overlapShape(toPxVec3(glm::vec3(EXPLOSIVE_SIZE)));
+        //PxTransform shapePose(toPxVec3(placementIndicator->transform.position));
+        //PxQueryFilterData filterData;
+        //filterData.flags = PxQueryFlag::eANY_HIT;
+
+        //bool statusA = gScene->overlap(overlapShape, shapePose, hit, filterData);
+
+        //if (statusA)
+        //{
+        //  placementIndicator->renderable.glow = PLACEMENT_INVALID;
+        //}
+      }
+
+      // place the bomb on release
+      if (world->io->KeysDownDuration[GLFW_KEY_F] == -1 && world->io->KeysDownDurationPrev[GLFW_KEY_F] >= 0 && world->bombInventory > 0)
+      {
+        glm::vec3 pos = world->camera.viewInfo.position + world->camera.viewInfo.GetForwardDir() * SELECT_DISTANCE;
+        world->MakeExplosive(pos, physics);
+      }
     }
   }
 
@@ -664,7 +738,7 @@ struct PhysicsImpl
       actor = dynamic;
       if (object->type == EntityType::EXPLOSIVE)
       {
-        dynamic->setContactReportThreshold(20000.0);
+        dynamic->setContactReportThreshold(EXPLOSIVE_TRIGGER_FORCE);
       }
       break;
     }
@@ -701,6 +775,7 @@ namespace Game
   Physics::Physics()
   {
     impl_ = new PhysicsImpl;
+    impl_->physics = this;
   }
 
   Physics::~Physics()

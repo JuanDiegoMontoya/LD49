@@ -2,6 +2,8 @@
 
 uniform vec3 u_sunDir;
 uniform float u_blendDay;
+uniform vec4 u_color;
+uniform vec3 u_glow;
 
 in VS_OUT
 {
@@ -17,21 +19,21 @@ vec3 faceNormal(vec3 wPos)
     return normalize(cross(dFdx(wPos), dFdy(wPos)));
 }
 
-vec3 GetDiffuse()
+vec4 GetDiffuse()
 {
-    return vec3(.2, .7, .3);
+    return u_color;
 }
 
 void main()
 {
     vec3 sunDay = vec3(1);
-    vec3 sunNight = vec3(0.2);
+    vec3 sunNight = vec3(0.3);
     vec3 sun = mix(sunNight, sunDay, u_blendDay);
 
     vec3 N = faceNormal(fs_in.vPosition);
     float NoL = max(0.0, dot(N, -u_sunDir));
     
-    vec3 diffuse = GetDiffuse();
+    vec3 diffuse = GetDiffuse().rgb;
 
     vec3 sunLit = u_blendDay * diffuse * NoL * sun + sun * 0.1;
 
@@ -41,5 +43,6 @@ void main()
 
     vec3 lit = sunLit + groundLit;
 
-    fragColor = vec4(lit + (0.06 * (N * 0.5 + 0.5)), 1.0);
+    if (u_color.a < 0.01) discard;
+    fragColor = vec4(u_glow + lit + (0.06 * (N * 0.5 + 0.5)), u_color.a);
 }

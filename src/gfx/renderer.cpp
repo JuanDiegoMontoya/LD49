@@ -244,6 +244,7 @@ namespace GFX
       standardShader.SetFloat("u_blendDay", blendDay);
       glBindVertexArray(standardVao);
 
+      // TODO: sort by mesh to reduce binding
       for (const auto& [transform, mesh, renderable] : renderables)
       {
         if (!renderable.visible)
@@ -254,6 +255,8 @@ namespace GFX
         glm::mat4 model = transform.GetModel();
 
         standardShader.SetMat4("u_model", model);
+        standardShader.SetVec4("u_color", renderable.color);
+        standardShader.SetVec3("u_glow", renderable.glow);
         glVertexArrayVertexBuffer(standardVao, 0, mesh.vertexBuffer, 0, sizeof(Vertex));
         glVertexArrayElementBuffer(standardVao, mesh.indexBuffer);
         glDrawElements(GL_TRIANGLES, mesh.count, gl_index_type(), nullptr);

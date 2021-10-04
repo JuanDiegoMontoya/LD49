@@ -104,7 +104,7 @@ int main()
   world.camera.viewInfo.position = { -5.5, 3, 0 };
   physics.SetWorld(&world);
 
-  world.LoadLevel(Game::level1, &physics);
+  world.LoadLevel(*Game::levels[0], &physics);
 
   // HACK: simulate once to remove visual artifacts while in start menu
   physics.Simulate(0);
@@ -156,9 +156,11 @@ int main()
     if (world.cheats)
     {
       ImGui::Text("Cheats Active!");
+      ImGui::Separator();
     }
     ImGui::Text("Bomb inventory: %d", world.bombInventory);
-    ImGui::Text("E (press)  : pickup bomb");
+    ImGui::NewLine();
+    ImGui::Text("E (press)  : pick up bomb");
     ImGui::Text("F (hold)   : show bomb placement");
     ImGui::Text("F (release): place bomb");
     ImGui::End();
@@ -179,6 +181,22 @@ int main()
       ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
       ImGui::SetNextWindowSize(ImVec2(400, 300));
       ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration);
+      
+      if (world.cheats)
+      {
+        ImGui::Text("Load Level");
+        for (const auto& level : Game::levels)
+        {
+          if (ImGui::Button(level->name, { -1, 0 }))
+          {
+            world.LoadLevel(*level, &physics);
+          }
+        }
+        ImGui::NewLine();
+      }
+
+      ImGui::Text("Level: %s", world.currentLevel->name);
+
       if (ImGui::Button("Resume", { -1, 0 }))
       {
         world.gameState = GameState::UNPAUSED;
@@ -230,6 +248,12 @@ int main()
           "F (release): place bomb\n"
           "Escape     : pause/unpause game"
         );
+        ImGui::TreePop();
+      }
+
+      if (ImGui::TreeNode("Current Level Hint"))
+      {
+        ImGui::Text("%s", world.currentLevel->hint);
         ImGui::TreePop();
       }
 
@@ -304,14 +328,14 @@ int main()
         ImGui::Begin("Level Victory", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::Text("You beat the level!");
 
-        if (ImGui::Button("Replay Level", { -1, 0 }))
-        {
-          world.LoadLevel(*world.currentLevel, &physics);
-        }
-
         if (ImGui::Button("Next Level", { -1, 0 }))
         {
           world.LoadLevel(*world.currentLevel->nextLevel, &physics);
+        }
+
+        if (ImGui::Button("Replay Level", { -1, 0 }))
+        {
+          world.LoadLevel(*world.currentLevel, &physics);
         }
 
         ImGui::End();
@@ -331,10 +355,15 @@ int main()
 
       world.cheats = true;
 
-      if (ImGui::Button("Level 1", { -1, 0 }))
+      ImGui::Text("Load Level");
+      for (const auto& level : Game::levels)
       {
-        world.LoadLevel(Game::level1, &physics);
+        if (ImGui::Button(level->name, { -1, 0 }))
+        {
+          world.LoadLevel(*level, &physics);
+        }
       }
+      ImGui::NewLine();
 
       if (ImGui::Button("Quit", { -1, 0 }))
       {

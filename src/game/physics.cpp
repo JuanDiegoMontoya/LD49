@@ -323,7 +323,7 @@ struct PhysicsImpl
     assert(gActorToObject.contains(actor));
     auto* object = gActorToObject[actor];
 
-    // TODO: make a bunch of tiny spheres shooting out in different directions
+    // make a bunch of tiny spheres go flying
     for (int i = 0; i < 50; i++)
     {
       auto* newObj = world->MakeSphere(object->transform.position, rng(.2, .4));
@@ -331,6 +331,7 @@ struct PhysicsImpl
       newObj->particle.life = rng(0, 1);
       newObj->particle.velocity = glm::normalize(glm::vec3(rng(-8, 8), rng(-5, 15), rng(-8, 8))) * (float)rng(15, 20);
       newObj->particle.acceleration = glm::vec3(0, -8, 0);
+      newObj->renderable.glow = { .3, .2, .1 };
     }
 
     for (auto& [otherActor, otherObject] : gActorToObject)

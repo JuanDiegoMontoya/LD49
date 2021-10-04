@@ -8,6 +8,9 @@ namespace Game
 {
   struct Level
   {
+    const char* name{};
+    const char* hint{};
+
     // layout
     std::vector<glm::vec3> bombs;
     std::vector<glm::vec3> smallPlatforms;
@@ -23,6 +26,5 @@ namespace Game
     Level* nextLevel{ nullptr };
   };
 
-  extern Level level1;
-  //extern Level level2;
+  extern std::vector<Level*> levels;
 }

@@ -60,6 +60,7 @@ GLFWwindow* CreateWindow(const WindowCreateInfo& createInfo)
   }
 
   glfwMakeContextCurrent(window);
+  glfwSwapInterval(1);
 
   return window;
 }
@@ -103,26 +104,10 @@ int main()
   world.camera.viewInfo.position = { -5.5, 3, 0 };
   physics.SetWorld(&world);
 
-
-  //world.MakeExplosive({ 0, 5, 0 }, &physics);
-
   world.LoadLevel(Game::level1, &physics);
 
   // HACK: simulate once to remove visual artifacts while in start menu
   physics.Simulate(0);
-
-  //for (int i = 0; i < 1; i++)
-  //{
-  //  Game::GameObject* obj = world.entityManager.GetObject(world.entityManager.CreateEntity());
-  //  obj->transform.position = { 0, 3 + i * 5, 2 };
-  //  obj->transform.scale = glm::vec3(1);
-  //  obj->mesh = world.cubeMeshHandle;
-  //  obj->renderable.visible = true;
-  //  obj->type = EntityType::REGULAR;
-
-  //  Game::Box box{ obj->transform.scale };
-  //  physics.AddObject(obj, Game::MaterialType::OBJECT, &box);
-  //}
 
   double prevFrame = glfwGetTime();
   while (!glfwWindowShouldClose(window))
@@ -133,38 +118,33 @@ int main()
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    // press escape to close window
+    // escape toggles paused state if game is paused or unpaused
     if (world.io->KeysDownDuration[GLFW_KEY_ESCAPE] == 0.0f)
     {
-      world.paused = !world.paused;
+      if (world.gameState == GameState::PAUSED)
+      {
+        world.gameState = GameState::UNPAUSED;
+      }
+      else if (world.gameState == GameState::UNPAUSED)
+      {
+        world.gameState = GameState::PAUSED;
+      }
     }
 
     // enable cheats
     if (world.io->KeysDownDuration[GLFW_KEY_F11] == 0.0f)
     {
-      world.cheats = true;
+      world.cheats = !world.cheats;
     }
 
-    if (world.paused)
+    // disable mouse if game is unpaused
+    if (world.gameState == GameState::UNPAUSED)
     {
-      ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-      ImGui::SetNextWindowSize(ImVec2(100, 100));
-      ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration);
-      if (ImGui::Button("Resume"))
-      {
-        world.paused = false;
-      }
-
-      if (ImGui::Button("Quit"))
-      {
-        glfwSetWindowShouldClose(window, true);
-      }
-      ImGui::End();
-      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
     else
     {
-      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse |
@@ -178,25 +158,199 @@ int main()
       ImGui::Text("Cheats Active!");
     }
     ImGui::Text("Bomb inventory: %d", world.bombInventory);
-    ImGui::Text("E: pickup bomb");
-    ImGui::Text("Hold F: show bomb placement");
-    ImGui::Text("Release F: place bomb");
+    ImGui::Text("E (press)  : pickup bomb");
+    ImGui::Text("F (hold)   : show bomb placement");
+    ImGui::Text("F (release): place bomb");
     ImGui::End();
 
     double curFrame = glfwGetTime();
     double dt = curFrame - prevFrame;
     prevFrame = curFrame;
 
-    if (world.paused)
+    if (world.gameState != GameState::UNPAUSED)
     {
       dt = 0;
     }
 
-    if (!world.paused)
+    switch (world.gameState)
+    {
+    case GameState::PAUSED:
+    {
+      ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+      ImGui::SetNextWindowSize(ImVec2(400, 300));
+      ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration);
+      if (ImGui::Button("Resume", { -1, 0 }))
+      {
+        world.gameState = GameState::UNPAUSED;
+      }
+
+      if (ImGui::Button("Restart Level", { -1, 0 }))
+      {
+        world.LoadLevel(*world.currentLevel, &physics);
+      }
+
+      if (ImGui::Button("Quit", { -1, 0 }))
+      {
+        glfwSetWindowShouldClose(window, true);
+      }
+
+      if (ImGui::TreeNode("How To Play"))
+      {
+        ImGui::Text(
+          "Get to the BLUE platform and avoid lava to win!\n"
+          "Running and jumping alone is not enough.\n"
+          "You will need to propel yourself with \n"
+          "UNSTABLE EXPLOSIVES\n"
+          "\n"
+          "Press and release F to place a bomb.\n"
+          "Bombs are UNSTABLE and explode if they \n"
+          "hit anything too hard.\n"
+          "\n"
+          "TIP: place a bomb in the air and it will \n"
+          "explode when it hits the ground.\n"
+          "TIP: jump when a bomb explodes to increase \n"
+          "propulsion distance.\n"
+          "TIP: carefully place multiple bombs on the \n"
+          "ground to generate a BIG explosion when they \n"
+          "explode.\n"
+          "TIP: place bombs under yourself while flying \n"
+          "to increase distance.\n"
+        );
+
+        ImGui::TreePop();
+      }
+
+      if (ImGui::TreeNode("Controls"))
+      {
+        ImGui::Text(
+          "WASD       : walk\n"
+          "Spacebar   : jump\n"
+          "E          : pickup bomb\n"
+          "F (hold)   : bomb placement guide\n"
+          "F (release): place bomb\n"
+          "Escape     : pause/unpause game"
+        );
+        ImGui::TreePop();
+      }
+
+      if (ImGui::TreeNode("Lore"))
+      {
+        ImGui::Text(
+          "You have magical skin that is explosion-proof, \n"
+          "but not lava-proof. You used to be able to hear, \n"
+          "but years of blowing yourself up has rendered you \n"
+          "deaf. Fortunately, you can still enjoy your favorite \n"
+          "hobby: reaching the blue platforms scattered \n"
+          "throughout this firey world."
+        );
+
+        ImGui::TreePop();
+      }
+
+      if (ImGui::TreeNode("Cheats (open at your own risk)"))
+      {
+        ImGui::Text(
+          "F11: toggle cheats\n"
+          "\n"
+          "When cheats are active:\n"
+          "You have lava invulnerability\n"
+          "T (hold): velocitate rapidly\n"
+        );
+        ImGui::TreePop();
+      }
+
+      ImGui::End();
+      break;
+    }
+    case GameState::UNPAUSED:
     {
       physics.Simulate(dt);
+      break;
+    }
+    case GameState::DEAD:
+    {
+      ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+      ImGui::Begin("Dead", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize);
+      srand(world.deathCounter + 500);
+      const char* deathMessages[] =
+      {
+        "You burnt to a crisp",
+        "You forgot to turn the oven off",
+        "You couldn't resist lava's deadly allure",
+        "You came face-to-face with death and lost",
+        "You are no longer alive",
+        "You died :(",
+        "You didn't put your oven mitts on"
+      };
+      ImGui::Text("%s", deathMessages[rand() % IM_ARRAYSIZE(deathMessages)]);
+      if (ImGui::Button("Try Again", { -1, 0 }))
+      {
+        world.LoadLevel(*world.currentLevel, &physics);
+      }
+
+      if (ImGui::Button("Ragequit", { -1, 0 }))
+      {
+        glfwSetWindowShouldClose(window, true);
+      }
+
+      ImGui::End();
+      break;
+    }
+    case GameState::WIN_LEVEL:
+    {
+      if (world.currentLevel->nextLevel != nullptr)
+      {
+        ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::Begin("Level Victory", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::Text("You beat the level!");
+
+        if (ImGui::Button("Replay Level", { -1, 0 }))
+        {
+          world.LoadLevel(*world.currentLevel, &physics);
+        }
+
+        if (ImGui::Button("Next Level", { -1, 0 }))
+        {
+          world.LoadLevel(*world.currentLevel->nextLevel, &physics);
+        }
+
+        ImGui::End();
+        break;
+      }
+
+      // fallthrough to WIN_GAME if no next level
+      [[fallthrough]];
+    }
+    case GameState::WIN_GAME:
+    {
+      ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+      ImGui::Begin("Game Victory", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize);
+      ImGui::Text("You beat the game, congrats!");
+      ImGui::Text("You died %d time%s", world.deathCounter, world.deathCounter == 1 ? "" : "s");
+      ImGui::Text("Cheats activated ;)");
+
+      world.cheats = true;
+
+      if (ImGui::Button("Level 1", { -1, 0 }))
+      {
+        world.LoadLevel(Game::level1, &physics);
+      }
+
+      if (ImGui::Button("Quit", { -1, 0 }))
+      {
+        glfwSetWindowShouldClose(window, true);
+      }
+
+      ImGui::End();
+      break;
+    }
+    default:
+      assert(0 && "Invalid gamestate!?!?");
+      break;
     }
 
+
+    // draw everything
     for (const auto& obj : world.entityManager.GetObjects())
     {
       renderer.Submit(obj->transform, obj->mesh, obj->renderable);

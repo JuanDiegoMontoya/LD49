@@ -11,6 +11,7 @@ enum class EntityType
   REGULAR,
   TERRAIN,
   EXPLOSIVE,
+  PARTICLE,
 };
 
 struct Transform
@@ -49,6 +50,7 @@ struct PhysicsFlags
 
 struct Particle
 {
-  glm::vec3 velocity;
-  glm::vec3 acceleration;
+  float life{};
+  glm::vec3 velocity{};
+  glm::vec3 acceleration{};
 };

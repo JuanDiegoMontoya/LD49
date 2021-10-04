@@ -16,6 +16,7 @@ constexpr float EXPLOSION_MAX_OBJECT_DIST = 10.0;
 constexpr float EXPLOSION_PLAYER_FORCE = 30.0;
 constexpr float EXPLOSION_MIN_PLAYER_FORCE = 10.0;
 constexpr float EXPLOSION_OBJECT_FORCE = 30.0;
+constexpr float EXPLOSION_PLAYER_TRIGGER_FORCE = 10.0;
 
 constexpr float PLAYER_HEIGHT = 2.0f;
 constexpr float PLAYER_RADIUS = 0.7f;
@@ -29,15 +30,27 @@ constexpr glm::vec3 SMALL_PLATFORM_SIZE{ 2, 1, 2 };
 constexpr glm::vec3 MEDIUM_PLATFORM_SIZE{ 5, 1, 5 };
 constexpr glm::vec3 LARGE_PLATFORM_SIZE{ 10, 1, 10 };
 
+enum class GameState
+{
+  PAUSED,
+  UNPAUSED,
+  DEAD,
+  WIN_LEVEL,
+  WIN_GAME,
+};
+
 struct World
 {
   bool cheats = false;
-  bool paused = true;
+  GameState gameState = GameState::PAUSED;
   int bombInventory = 1;
+  unsigned deathCounter = 0;
 
   ImGuiIO* io{};
   GFX::Camera camera;
   Game::EntityManager entityManager;
+
+  const Game::Level* currentLevel = nullptr;
 
   MeshHandle sphereMeshHandle;
   MeshHandle cubeMeshHandle;
@@ -83,6 +96,8 @@ struct World
 
   void LoadLevel(const Game::Level& level, Game::Physics* physics)
   {
+    gameState = GameState::PAUSED;
+    currentLevel = &level;
     entityManager.Clear();
     physics->Reset();
 
@@ -114,5 +129,8 @@ struct World
     bombInventory = level.startBombs;
 
     physics->SetPlayerPos(level.startPos);
+
+    // epic hack
+    physics->Simulate(0);
   }
 };

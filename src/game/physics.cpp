@@ -145,6 +145,19 @@ private:
   void onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs);
 };
 
+class UserControllerHitReport : public PxUserControllerHitReport
+{
+public:
+  PhysicsImpl* impl_{};
+
+  UserControllerHitReport(PhysicsImpl* impl) : impl_(impl) {}
+
+  void onShapeHit(const PxControllerShapeHit& hit) override;
+  void onControllerHit(const PxControllersHit& hit) override {}
+  void onObstacleHit(const PxControllerObstacleHit& hit) override {}
+
+};
+
 struct PhysicsImpl
 {
   ////////////////////////////////////////////////////////
@@ -168,6 +181,7 @@ struct PhysicsImpl
 
   World* world = nullptr;
   PxController* controller = nullptr;
+  UserControllerHitReport* controllerHitCallback{};
   glm::vec3 pVel{};
   bool pExploded = false; // true when exploded until touching the ground again
   PxControllerCollisionFlags cFlags{};
@@ -333,12 +347,14 @@ struct PhysicsImpl
     float dist = glm::distance(world->camera.viewInfo.position, object->transform.position);
     if (dist < EXPLOSION_MAX_PLAYER_DIST)
     {
+      float curSpeed = glm::max(glm::length(pVel), 4.0f);
+      float reductionFactor = curSpeed / 4;
       float forceStr = glm::min(EXPLOSION_PLAYER_FORCE / (dist), EXPLOSION_PLAYER_FORCE);
-      forceStr = glm::max(EXPLOSION_MIN_PLAYER_FORCE, forceStr);
+      forceStr = glm::max(EXPLOSION_MIN_PLAYER_FORCE, forceStr) / reductionFactor;
       glm::vec3 dir = glm::normalize(world->camera.viewInfo.position - object->transform.position);
       glm::vec3 force = dir * forceStr;
       pVel += force;
-      pVel.y += 10;
+      pVel.y += 6;
       pExploded = true;
     }
 
@@ -380,6 +396,8 @@ struct PhysicsImpl
     
     world = wld;
 
+    controllerHitCallback = new UserControllerHitReport(this);
+
     PxCapsuleControllerDesc desc;
     desc.upDirection = { 0, 1, 0 };
     desc.density = 10.0f;
@@ -388,6 +406,7 @@ struct PhysicsImpl
     desc.height = 2.0f;
     desc.radius = 0.7f;
     desc.contactOffset = 0.1f;
+    desc.reportCallback = controllerHitCallback;
 
     controller = gCManager->createController(desc);
     auto vp = world->camera.viewInfo.position;
@@ -429,6 +448,13 @@ struct PhysicsImpl
     if (xzForce != glm::vec2(0))
     {
       xzForce = glm::normalize(xzForce) * curSpeed0;
+    }
+
+    // cheat to go really fast
+    if (world->io->KeysDown[GLFW_KEY_T] && world->cheats)
+    {
+      pVel += vi.GetForwardDir() * dt * 100.f;
+      pExploded = true;
     }
 
     float curSpeed = glm::length(glm::vec2(pVel.x, pVel.z));
@@ -638,6 +664,16 @@ struct PhysicsImpl
       if (explodeList.contains(actor))
       {
         explodeList.erase(actor);
+      }
+    }
+
+    auto objectsCopy = world->entityManager.GetObjects();
+    for (auto* obj : objectsCopy)
+    {
+      if (obj->type == EntityType::PARTICLE)
+      {
+        obj->particle.velocity += obj->particle.acceleration * dt;
+        obj->transform.position += obj->particle.velocity * dt;
       }
     }
 
@@ -857,17 +893,34 @@ void ContactReportCallback::onConstraintBreak(PxConstraintInfo* constraints, PxU
 
 void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[maybe_unused]] const PxContactPair* pairs, [[maybe_unused]] PxU32 nbPairs)
 {
-  auto it1 = physics_->gActorToObject.find(pairHeader.actors[0]);
-  auto it2 = physics_->gActorToObject.find(pairHeader.actors[1]);
-  if (it1 != physics_->gActorToObject.end())
+  auto a = pairHeader.actors[0];
+  auto b = pairHeader.actors[1];
+  auto it1 = physics_->gActorToObject.find(a);
+  auto it2 = physics_->gActorToObject.find(b);
+
+  // explode explosives on contact with lava
+  if (it1 == physics_->gActorToObject.end() && it2 != physics_->gActorToObject.end())
   {
-    //printf("a");
+    PxShape* shape;
+    if (a->getShapes(&shape, 1) && a->getNbShapes() == 1)
+    {
+      if (shape->getGeometryType() == PxGeometryType::ePLANE && it2->second->type == EntityType::EXPLOSIVE)
+      {
+        physics_->explodeList.insert(b);
+      }
+    }
   }
-  if (it2 != physics_->gActorToObject.end())
+  if (it2 == physics_->gActorToObject.end() && it1 != physics_->gActorToObject.end())
   {
-    //printf("b");
+    PxShape* shape;
+    if (b->getShapes(&shape, 1) && b->getNbShapes() == 1)
+    {
+      if (shape->getGeometryType() == PxGeometryType::ePLANE && it1->second->type == EntityType::EXPLOSIVE)
+      {
+        physics_->explodeList.insert(a);
+      }
+    }
   }
-  //printf("C");
 
   for (int i = 0; i < nbPairs; i++)
   {
@@ -875,8 +928,6 @@ void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[m
 
     for (int j = 0; j < pair.contactCount; j++)
     {
-      auto a = pairHeader.actors[0];
-      auto b = pairHeader.actors[1];
 
       // contact where the explosion threshold wasn't reached
       if (!(pair.events & PxPairFlag::eNOTIFY_THRESHOLD_FORCE_FOUND))
@@ -898,6 +949,39 @@ void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[m
         {
           physics_->explodeList.insert(b);
         }
+      }
+    }
+  }
+}
+
+void UserControllerHitReport::onShapeHit(const PxControllerShapeHit& hit)
+{
+  if (hit.actor && impl_->gActorToObject.contains(hit.actor))
+  {
+    auto* obj = impl_->gActorToObject[hit.actor];
+    if (obj->physics.isWinPlatform)
+    {
+      impl_->world->gameState = GameState::WIN_LEVEL;
+    }
+
+    if (obj->type == EntityType::EXPLOSIVE && glm::length(impl_->pVel) > EXPLOSION_PLAYER_TRIGGER_FORCE)
+    {
+      impl_->explodeList.insert(hit.actor);
+    }
+  }
+
+  // only the lava plane doesn't have an actor, so we use this hack to detect if we hit it
+  PxShape* shape;
+  if (hit.actor && !impl_->gActorToObject.contains(hit.actor))
+  {
+    hit.actor->getShapes(&shape, 1);
+    if (shape->getGeometryType() == PxGeometryType::ePLANE);
+    {
+      // cheaters are invincible
+      if (!impl_->world->cheats)
+      {
+        impl_->world->deathCounter++;
+        impl_->world->gameState = GameState::DEAD;
       }
     }
   }

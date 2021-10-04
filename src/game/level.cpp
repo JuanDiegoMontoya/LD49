@@ -7,7 +7,6 @@ namespace Game
   {
     .bombs =
     {
-      //{ 0, 5, 0 },
     },
 
     .smallPlatforms = 

@@ -20,6 +20,7 @@ namespace Game
     MeshHandle mesh;
     Renderable renderable;
     PhysicsFlags physics{};
+    Particle particle;
   };
 
   class EntityManager

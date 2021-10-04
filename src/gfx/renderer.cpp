@@ -222,7 +222,7 @@ namespace GFX
 
     void Draw(const Camera& camera, float dt)
     {
-      gTime += dt;
+      gTime += dt / 10;
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       glEnable(GL_FRAMEBUFFER_SRGB);
 

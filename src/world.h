@@ -17,7 +17,7 @@ constexpr glm::vec4 EXPLOSIVE_COLOR{ 1.0, .3, .1, 1.0 };
 constexpr glm::vec3 EXPLOSIVE_BASE_GLOW{ .2, 0, 0 };
 constexpr float EXPLOSIVE_TRIGGER_FORCE = 15000.0;
 constexpr float EXPLOSIVE_SIZE = 0.7f;
-constexpr float EXPLOSION_RECURSE_DIST = 10.0;
+constexpr float EXPLOSION_RECURSE_DIST = 7.0;
 constexpr float EXPLOSION_MAX_PLAYER_DIST = 8.0;
 constexpr float EXPLOSION_MAX_OBJECT_DIST = 10.0;
 constexpr float EXPLOSION_PLAYER_FORCE = 30.0;
@@ -37,6 +37,8 @@ constexpr glm::vec3 SMALL_PLATFORM_SIZE{ 2, 1, 2 };
 constexpr glm::vec3 MEDIUM_PLATFORM_SIZE{ 5, 1, 5 };
 constexpr glm::vec3 LARGE_PLATFORM_SIZE{ 10, 1, 10 };
 
+constexpr int POCKET_SIZE = 5;
+
 enum class GameState
 {
   PAUSED,
@@ -48,6 +50,7 @@ enum class GameState
 
 struct World
 {
+  float mouseSensitivity = 0.003f;
   bool cheats = false;
   GameState gameState = GameState::PAUSED;
   int bombInventory = 1;
@@ -105,6 +108,8 @@ struct World
   {
     gameState = GameState::PAUSED;
     currentLevel = &level;
+    camera.viewInfo.pitch = 0;
+    camera.viewInfo.yaw = 0;
     entityManager.Clear();
     physics->Reset();
 
@@ -126,6 +131,11 @@ struct World
     for (glm::vec3 pos : level.largePlatforms)
     {
       MakePlatform(pos, LARGE_PLATFORM_SIZE, physics);
+    }
+
+    for (auto& [pos, size] : level.customPlatforms)
+    {
+      MakePlatform(pos, size, physics);
     }
 
     auto* win = MakePlatform(level.winPlatformPos, level.winPlatformSize, physics);

@@ -179,9 +179,9 @@ struct PhysicsImpl
   const float gravity = -15;
   const float jump = 7.2;
   const float accelerationGround = 50.0f;
-  const float accelerationAir = 15.0f;
+  const float accelerationAir = 8.0f;
   const float decelerationGround = 40.0f;
-  const float decelerationAir = 1.0f;
+  const float decelerationAir = 0.0f;
   const float moveSpeed = 7.0;
   const float maxXZSpeed = moveSpeed;
 
@@ -334,8 +334,8 @@ struct PhysicsImpl
     {
       auto* newObj = world->MakeSphere(object->transform.position, rng(.2, .4));
       newObj->type = EntityType::PARTICLE;
-      newObj->particle.life = rng(0, 1);
-      newObj->particle.velocity = glm::normalize(glm::vec3(rng(-8, 8), rng(-5, 15), rng(-8, 8))) * (float)rng(15, 20);
+      newObj->particle.life = rng(0, 2);
+      newObj->particle.velocity = glm::normalize(glm::vec3(rng(-8, 8), rng(-5, 15), rng(-8, 8))) * (float)rng(22, 32);
       newObj->particle.acceleration = glm::vec3(0, -8, 0);
       newObj->renderable.glow = { .4, .2, .1 };
     }
@@ -378,7 +378,7 @@ struct PhysicsImpl
       glm::vec3 dir = glm::normalize(world->camera.viewInfo.position - object->transform.position);
       glm::vec3 force = dir * forceStr;
       pVel += force;
-      pVel.y += 6;
+      pVel.y += 6 / (reductionFactor / 2); // small Y factor so first explosion always pushes the player up a bit
       pExploded = true;
     }
 
@@ -427,7 +427,7 @@ struct PhysicsImpl
     desc.density = 10.0f;
     desc.stepOffset = 0.1f;
     desc.material = gMaterials[(int)Game::MaterialType::PLAYER];
-    desc.height = 2.0f;
+    desc.height = 1.5f;
     desc.radius = 0.7f;
     desc.contactOffset = 0.1f;
     desc.reportCallback = controllerHitCallback;
@@ -441,8 +441,8 @@ struct PhysicsImpl
   {
     // mouse controls
     auto& vi = world->camera.viewInfo;
-    vi.yaw += world->io->MouseDelta.x * .003f;
-    vi.pitch = glm::clamp(vi.pitch - world->io->MouseDelta.y * .003f, glm::radians(-89.0f), glm::radians(89.0f));
+    vi.yaw += world->io->MouseDelta.x * world->mouseSensitivity;
+    vi.pitch = glm::clamp(vi.pitch - world->io->MouseDelta.y * world->mouseSensitivity, glm::radians(-89.0f), glm::radians(89.0f));
 
     const auto fwd = world->camera.viewInfo.GetForwardDir();
     const glm::vec2 xzForward = glm::normalize(glm::vec2(fwd.x, fwd.z));
@@ -616,11 +616,11 @@ struct PhysicsImpl
         if (gActorToObject.contains(closest.actor))
         {
           auto* obj = gActorToObject[closest.actor];
-          if (obj->type == EntityType::EXPLOSIVE)
+          if (obj->type == EntityType::EXPLOSIVE && world->bombInventory < POCKET_SIZE)
           {
             obj->renderable.glow = SELECT_GLOW;
 
-            if (world->io->KeysDown[GLFW_KEY_E])
+            if (world->io->KeysDownDuration[GLFW_KEY_E] == 0.0f)
             {
               RemoveObject(obj);
               world->entityManager.DestroyEntity(obj->entity);
@@ -677,7 +677,7 @@ struct PhysicsImpl
     {
       SimulatePlayer(dt);
       const auto& p = controller->getPosition();
-      world->camera.viewInfo.position = { p.x, p.y, p.z };
+      world->camera.viewInfo.position = { p.x, p.y + .4, p.z };
     }
 
     // copy OG explode list, then clear it so we can add more stuff to explode in there

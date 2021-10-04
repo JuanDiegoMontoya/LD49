@@ -76,7 +76,7 @@ void InitOpenGL()
 
 int main()
 {
-  GLFWwindow* window = CreateWindow({ .maximize = false, .decorate = true, .width = 800, .height = 600 });
+  GLFWwindow* window = CreateWindow({ .maximize = true, .decorate = true, .width = 1280, .height = 720 });
 
   InitOpenGL();
 
@@ -179,19 +179,6 @@ int main()
       ImGui::SetNextWindowSize(ImVec2(400, 300));
       ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration);
       
-      if (world.cheats)
-      {
-        ImGui::Text("Load Level");
-        for (const auto& level : Game::levels)
-        {
-          if (ImGui::Button(level->name, { -1, 0 }))
-          {
-            world.LoadLevel(*level, &physics);
-          }
-        }
-        ImGui::NewLine();
-      }
-
       ImGui::Text("Level: %s", world.currentLevel->name);
 
       if (ImGui::Button("Resume", { -1, 0 }))
@@ -209,6 +196,23 @@ int main()
         glfwSetWindowShouldClose(window, true);
       }
 
+      if (ImGui::TreeNode("Options"))
+      {
+        static float FoV = 90;
+        if (ImGui::SliderFloat("FoV", &FoV, 20, 120))
+        {
+          world.camera.proj = glm::perspective(glm::radians(FoV), static_cast<float>(frameWidth) / frameHeight, 0.10f, 1000.0f);
+        }
+
+        float sensTemp = world.mouseSensitivity * 100;
+        if (ImGui::SliderFloat("Look sensitivity", &sensTemp, .01, 2))
+        {
+          world.mouseSensitivity = sensTemp / 100;
+        }
+
+        ImGui::TreePop();
+      }
+
       if (ImGui::TreeNode("How To Play"))
       {
         ImGui::Text(
@@ -220,6 +224,9 @@ int main()
           "Press and release F to place a bomb.\n"
           "Bombs are UNSTABLE and explode if they \n"
           "hit anything too hard.\n"
+          "\n"
+          "Press E while looking at a bomb to \n"
+          "pick it up. You can hold up to 5 bombs.\n"
           "\n"
           "TIP: place a bomb in the air and it will \n"
           "explode when it hits the ground.\n"
@@ -278,6 +285,19 @@ int main()
           "T (hold): velocitate rapidly\n"
         );
         ImGui::TreePop();
+      }
+
+      if (world.cheats)
+      {
+        ImGui::Text("Load Level");
+        for (const auto& level : Game::levels)
+        {
+          if (ImGui::Button(level->name, { -1, 0 }))
+          {
+            world.LoadLevel(*level, &physics);
+          }
+        }
+        ImGui::NewLine();
       }
 
       ImGui::End();
@@ -354,6 +374,7 @@ int main()
 
       world.cheats = true;
 
+      ImGui::NewLine();
       ImGui::Text("Load Level");
       for (const auto& level : Game::levels)
       {

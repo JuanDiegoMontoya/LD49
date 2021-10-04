@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
+#include <bit>
+#include <execution>
 
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
@@ -38,24 +40,32 @@ struct PhysicsImpl;
 
 namespace
 {
-  class PxLockRead
-  {
-  public:
-    PxLockRead(PxScene* scn) : scene(scn) { scene->lockRead(); }
-    ~PxLockRead() { scene->unlockRead(); }
+  static thread_local uint64_t x = 123456789, y = 362436069, z = 521288629;
 
-  private:
-    PxScene* scene;
-  };
-  class PxLockWrite
+  uint64_t xorshf96()
   {
-  public:
-    PxLockWrite(PxScene* scn) : scene(scn) { scene->lockWrite(); }
-    ~PxLockWrite() { scene->unlockWrite(); }
+    x ^= x << 16;
+    x ^= x >> 5;
+    x ^= x << 1;
 
-  private:
-    PxScene* scene;
-  };
+    uint64_t t = x;
+    x = y;
+    y = z;
+    z = t ^ x ^ y;
+
+    return z;
+  }
+
+  double rng()
+  {
+    uint64_t bits = 1023ull << 52ull | xorshf96() & 0xfffffffffffffull;
+    return std::bit_cast<double>(bits) - 1.0;
+  }
+
+  double rng(double low, double high)
+  {
+    return (rng() * (high - low)) + low;
+  }
 
   PxVec3 toPxVec3(const glm::vec3& v)
   {
@@ -241,7 +251,6 @@ struct PhysicsImpl
     //sceneDesc.flags |= PxSceneFlag::eREQUIRE_RW_LOCK;
 
     gScene = gPhysics->createScene(sceneDesc);
-    PxLockWrite lkw(gScene);
     gCManager = PxCreateControllerManager(*gScene);
     PxPvdSceneClient* pvdClient = gScene->getScenePvdClient();
     if (pvdClient)
@@ -315,6 +324,14 @@ struct PhysicsImpl
     auto* object = gActorToObject[actor];
 
     // TODO: make a bunch of tiny spheres shooting out in different directions
+    for (int i = 0; i < 50; i++)
+    {
+      auto* newObj = world->MakeSphere(object->transform.position, rng(.2, .4));
+      newObj->type = EntityType::PARTICLE;
+      newObj->particle.life = rng(0, 1);
+      newObj->particle.velocity = glm::normalize(glm::vec3(rng(-8, 8), rng(-5, 15), rng(-8, 8))) * (float)rng(15, 20);
+      newObj->particle.acceleration = glm::vec3(0, -8, 0);
+    }
 
     for (auto& [otherActor, otherObject] : gActorToObject)
     {
@@ -667,26 +684,37 @@ struct PhysicsImpl
       }
     }
 
-    auto objectsCopy = world->entityManager.GetObjects();
-    for (auto* obj : objectsCopy)
-    {
-      if (obj->type == EntityType::PARTICLE)
-      {
-        obj->particle.velocity += obj->particle.acceleration * dt;
-        obj->transform.position += obj->particle.velocity * dt;
-      }
-    }
-
     bool asdf = false;
     accumulator += dt;
     accumulator = glm::min(accumulator, tick * 20); // accumulate 20 steps of backlog
     if (accumulator > tick) // NOTE: not while loop, because we want to avoid the Well of Despair
     {
-      PxLockWrite lkw(gScene);
       if (resultsReady)
       {
         gScene->simulate(tick);
         resultsReady = false;
+
+        // simulate particles here
+        std::vector<Game::GameObject*> deleteList;
+        for (auto* obj : world->entityManager.GetObjects())
+        {
+          if (obj->type == EntityType::PARTICLE)
+          {
+            obj->particle.velocity *= 0.98;
+            obj->particle.velocity += obj->particle.acceleration * (float)tick;
+            obj->transform.position += obj->particle.velocity * (float)tick;
+            obj->particle.life -= tick;
+            if (obj->particle.life < 0)
+            {
+              deleteList.push_back(obj);
+            }
+          }
+        }
+
+        for (auto* obj : deleteList)
+        {
+          world->entityManager.DestroyEntity(obj->entity);
+        }
       }
       if (gScene->fetchResults(false))
       {

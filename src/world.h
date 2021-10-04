@@ -6,6 +6,13 @@
 #include "game/physics.h"
 #include "game/level.h"
 
+#define DEBUG_PRINT 0
+#if DEBUG_PRINT
+#define DEBUG_PRINT(x) printf(#x "\n");
+#else
+#define DEBUG_PRINT(x)
+#endif
+
 constexpr glm::vec4 EXPLOSIVE_COLOR{ 1.0, .3, .1, 1.0 };
 constexpr glm::vec3 EXPLOSIVE_BASE_GLOW{ .2, 0, 0 };
 constexpr float EXPLOSIVE_TRIGGER_FORCE = 15000.0;
@@ -132,5 +139,7 @@ struct World
 
     // epic hack
     physics->Simulate(0);
+
+    DEBUG_PRINT(LoadLevela);
   }
 };

@@ -177,7 +177,7 @@ struct PhysicsImpl
   Game::Physics* physics{};
 
   const float gravity = -15;
-  const float jump = 8.2;
+  const float jump = 7.2;
   const float accelerationGround = 50.0f;
   const float accelerationAir = 15.0f;
   const float decelerationGround = 40.0f;
@@ -300,6 +300,7 @@ struct PhysicsImpl
     // make placement indicator
     placementIndicator = world->MakeBox({ 0, 0, 0 }, glm::vec3(EXPLOSIVE_SIZE));
     placementIndicator->renderable.color = glm::vec4(0.5, 0.5, 0.5, 1.0);
+    assert(placementIndicator->entity > 0);
   }
 
   void SetPlayerPos(glm::vec3 pos)
@@ -322,16 +323,21 @@ struct PhysicsImpl
   {
     assert(gActorToObject.contains(actor));
     auto* object = gActorToObject[actor];
+    
+    if (!object)
+    {
+      return;
+    }
 
     // make a bunch of tiny spheres go flying
-    for (int i = 0; i < 50; i++)
+    for (int i = 0; i < 150; i++)
     {
       auto* newObj = world->MakeSphere(object->transform.position, rng(.2, .4));
       newObj->type = EntityType::PARTICLE;
       newObj->particle.life = rng(0, 1);
       newObj->particle.velocity = glm::normalize(glm::vec3(rng(-8, 8), rng(-5, 15), rng(-8, 8))) * (float)rng(15, 20);
       newObj->particle.acceleration = glm::vec3(0, -8, 0);
-      newObj->renderable.glow = { .3, .2, .1 };
+      newObj->renderable.glow = { .4, .2, .1 };
     }
 
     for (auto& [otherActor, otherObject] : gActorToObject)
@@ -626,6 +632,7 @@ struct PhysicsImpl
     }
 
     {
+      assert(world->entityManager.GetObject(placementIndicator->entity));
       placementIndicator->renderable.visible = false;
       placementIndicator->transform.position = vi.position + vi.GetForwardDir() * SELECT_DISTANCE;
 
@@ -664,6 +671,8 @@ struct PhysicsImpl
 
   void Simulate(float dt)
   {
+    assert(placementIndicator->entity > 0);
+
     if (controller && world)
     {
       SimulatePlayer(dt);
@@ -685,6 +694,8 @@ struct PhysicsImpl
       }
     }
 
+    assert(placementIndicator->entity > 0);
+
     bool asdf = false;
     accumulator += dt;
     accumulator = glm::min(accumulator, tick * 20); // accumulate 20 steps of backlog
@@ -694,6 +705,12 @@ struct PhysicsImpl
       {
         gScene->simulate(tick);
         resultsReady = false;
+      }
+      if (gScene->fetchResults(false))
+      {
+        resultsReady = true;
+        accumulator -= tick;
+        asdf = true;
 
         // simulate particles here
         std::vector<Game::GameObject*> deleteList;
@@ -701,6 +718,7 @@ struct PhysicsImpl
         {
           if (obj->type == EntityType::PARTICLE)
           {
+            assert(!gObjectToActor.contains(obj));
             obj->particle.velocity *= 0.98;
             obj->particle.velocity += obj->particle.acceleration * (float)tick;
             obj->transform.position += obj->particle.velocity * (float)tick;
@@ -717,13 +735,9 @@ struct PhysicsImpl
           world->entityManager.DestroyEntity(obj->entity);
         }
       }
-      if (gScene->fetchResults(false))
-      {
-        resultsReady = true;
-        accumulator -= tick;
-        asdf = true;
-      }
     }
+
+    assert(placementIndicator->entity > 0);
 
     if (!asdf)
       return;
@@ -754,6 +768,8 @@ struct PhysicsImpl
         }
       }
     }
+
+    assert(placementIndicator->entity > 0);
   }
 
   void AddObject(Game::GameObject* object, Game::MaterialType material, Game::collider_t mesh)
@@ -922,8 +938,8 @@ void ContactReportCallback::onConstraintBreak(PxConstraintInfo* constraints, PxU
 
 void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[maybe_unused]] const PxContactPair* pairs, [[maybe_unused]] PxU32 nbPairs)
 {
-  auto a = pairHeader.actors[0];
-  auto b = pairHeader.actors[1];
+  auto* a = pairHeader.actors[0];
+  auto* b = pairHeader.actors[1];
   auto it1 = physics_->gActorToObject.find(a);
   auto it2 = physics_->gActorToObject.find(b);
 
@@ -931,7 +947,7 @@ void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[m
   if (it1 == physics_->gActorToObject.end() && it2 != physics_->gActorToObject.end())
   {
     PxShape* shape;
-    if (a->getShapes(&shape, 1) && a->getNbShapes() == 1)
+    if (a && a->getShapes(&shape, 1) && a->getNbShapes() == 1)
     {
       if (shape->getGeometryType() == PxGeometryType::ePLANE && it2->second->type == EntityType::EXPLOSIVE)
       {
@@ -942,7 +958,7 @@ void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[m
   if (it2 == physics_->gActorToObject.end() && it1 != physics_->gActorToObject.end())
   {
     PxShape* shape;
-    if (b->getShapes(&shape, 1) && b->getNbShapes() == 1)
+    if (b && b->getShapes(&shape, 1) && b->getNbShapes() == 1)
     {
       if (shape->getGeometryType() == PxGeometryType::ePLANE && it1->second->type == EntityType::EXPLOSIVE)
       {

@@ -106,9 +106,6 @@ int main()
 
   world.LoadLevel(*Game::levels[0], &physics);
 
-  // HACK: simulate once to remove visual artifacts while in start menu
-  physics.Simulate(0);
-
   double prevFrame = glfwGetTime();
   while (!glfwWindowShouldClose(window))
   {
@@ -288,6 +285,7 @@ int main()
     }
     case GameState::UNPAUSED:
     {
+      DEBUG_PRINT(UNPAUSED);
       physics.Simulate(dt);
       break;
     }
@@ -322,6 +320,7 @@ int main()
     }
     case GameState::WIN_LEVEL:
     {
+      DEBUG_PRINT(WIN_LEVEL);
       if (world.currentLevel->nextLevel != nullptr)
       {
         ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));

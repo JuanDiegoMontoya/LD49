@@ -6,12 +6,14 @@ namespace Game
   extern Level level1;
   extern Level level2;
   extern Level level3;
+  extern Level level4;
 
   std::vector<Level*> levels
   {
     &level1,
     &level2,
     &level3,
+    &level4,
   };
 
   Level level1
@@ -113,6 +115,41 @@ namespace Game
     .winPlatformSize = { 5, 1, 5 },
 
     .startBombs = 0,
+
+    .startPos = { 0, 5, 0 },
+
+    .nextLevel = &level4
+  };
+
+  Level level4
+  {
+    .name = "Hop and a Skip",
+
+    .hint = "Jump continuously to maintain momentum",
+
+    .bombs =
+    {
+    },
+
+    .smallPlatforms =
+    {
+      { 0, 1, 0 },
+      { 15, 1, 0 },
+    },
+
+    .mediumPlatforms =
+    {
+    },
+
+    .largePlatforms =
+    {
+    },
+
+    .winPlatformPos = { 30, 1, 0 },
+
+    .winPlatformSize = { 5, 1, 5 },
+
+    .startBombs = 1,
 
     .startPos = { 0, 5, 0 },
 

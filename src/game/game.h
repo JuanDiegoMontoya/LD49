@@ -15,12 +15,12 @@ namespace Game
   {
     entity_t entity{};
 
-    EntityType type;
-    Transform transform;
-    MeshHandle mesh;
-    Renderable renderable;
+    EntityType type = EntityType::REGULAR;
+    Transform transform{};
+    MeshHandle mesh{};
+    Renderable renderable{};
     PhysicsFlags physics{};
-    Particle particle;
+    Particle particle{};
   };
 
   class EntityManager

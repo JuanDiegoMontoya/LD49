@@ -6,6 +6,7 @@ namespace Game
   {
     GameObject* obj = new GameObject;
     obj->entity = ++nextEntity;
+    obj->type = EntityType::REGULAR;
     objects.push_back(obj);
     return nextEntity;
   }
@@ -29,6 +30,7 @@ namespace Game
     {
       if (objects[i]->entity == entity)
       {
+        //printf("Destroyed object %d\n", objects[i]->entity);
         delete objects[i];
         objects.erase(objects.begin() + i);
         return;
@@ -46,5 +48,6 @@ namespace Game
     }
 
     objects.clear();
+    nextEntity = 0;
   }
 }

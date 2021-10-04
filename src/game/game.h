@@ -19,6 +19,7 @@ namespace Game
     Transform transform;
     MeshHandle mesh;
     Renderable renderable;
+    PhysicsFlags physics{};
   };
 
   class EntityManager
@@ -33,6 +34,7 @@ namespace Game
     GameObject* GetObject(entity_t entity);
     auto& GetObjects() { return objects; }
     void DestroyEntity(entity_t entity);
+    void Clear();
 
   private:
     entity_t nextEntity = 0;

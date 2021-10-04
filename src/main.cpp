@@ -99,13 +99,17 @@ int main()
   //GFX::Camera camera;
   world.io = &ImGui::GetIO();
   Game::Physics physics;
-  world.camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.10f, 400.0f);
+  world.camera.proj = glm::perspective(glm::radians(90.0f), static_cast<float>(frameWidth) / frameHeight, 0.10f, 1000.0f);
   world.camera.viewInfo.position = { -5.5, 3, 0 };
   physics.SetWorld(&world);
 
 
+  //world.MakeExplosive({ 0, 5, 0 }, &physics);
 
-  world.MakeExplosive({ 0, 5, 0 }, &physics);
+  world.LoadLevel(Game::level1, &physics);
+
+  // HACK: simulate once to remove visual artifacts while in start menu
+  physics.Simulate(0);
 
   //for (int i = 0; i < 1; i++)
   //{

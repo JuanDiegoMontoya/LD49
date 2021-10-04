@@ -46,6 +46,9 @@ namespace Game
     //collider_t CookMesh(const GFX::Mesh& mesh);
     void SetWorld(World* world);
     void Simulate(float dt);
+    void SetPlayerPos(glm::vec3 pos);
+
+    void Reset();
 
     //void AddObject(GameObject* object, MaterialType material, collider_t mesh);
     void AddObject(GameObject* object, MaterialType material, const Shape* shape);

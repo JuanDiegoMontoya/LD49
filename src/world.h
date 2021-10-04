@@ -4,6 +4,7 @@
 #include "gfx/camera.h"
 #include "game/game.h"
 #include "game/physics.h"
+#include "game/level.h"
 
 constexpr glm::vec4 EXPLOSIVE_COLOR{ 1.0, .3, .1, 1.0 };
 constexpr glm::vec3 EXPLOSIVE_BASE_GLOW{ .2, 0, 0 };
@@ -23,6 +24,10 @@ constexpr glm::vec3 SELECT_GLOW{ 0.3f };
 constexpr float SELECT_DISTANCE = 3.0f;
 constexpr glm::vec3 PLACEMENT_VALID{ .1, .5, .1 };
 constexpr glm::vec3 PLACEMENT_INVALID{ .5, .1, .1 };
+
+constexpr glm::vec3 SMALL_PLATFORM_SIZE{ 2, 1, 2 };
+constexpr glm::vec3 MEDIUM_PLATFORM_SIZE{ 5, 1, 5 };
+constexpr glm::vec3 LARGE_PLATFORM_SIZE{ 10, 1, 10 };
 
 struct World
 {
@@ -65,5 +70,49 @@ struct World
     Game::Box box{ glm::vec3(EXPLOSIVE_SIZE) };
     physics->AddObject(obj, Game::MaterialType::OBJECT, &box);
     return obj;
+  }
+
+  Game::GameObject* MakePlatform(glm::vec3 pos, glm::vec3 halfExtents, Game::Physics* physics)
+  {
+    auto* obj = MakeBox(pos, halfExtents);
+    obj->type = EntityType::TERRAIN;
+    Game::Box box{ halfExtents };
+    physics->AddObject(obj, Game::MaterialType::TERRAIN, &box);
+    return obj;
+  }
+
+  void LoadLevel(const Game::Level& level, Game::Physics* physics)
+  {
+    entityManager.Clear();
+    physics->Reset();
+
+    for (glm::vec3 pos : level.bombs)
+    {
+      MakeExplosive(pos, physics);
+    }
+
+    for (glm::vec3 pos : level.smallPlatforms)
+    {
+      MakePlatform(pos, SMALL_PLATFORM_SIZE, physics);
+    }
+
+    for (glm::vec3 pos : level.mediumPlatforms)
+    {
+      MakePlatform(pos, MEDIUM_PLATFORM_SIZE, physics);
+    }
+
+    for (glm::vec3 pos : level.largePlatforms)
+    {
+      MakePlatform(pos, LARGE_PLATFORM_SIZE, physics);
+    }
+
+    auto* win = MakePlatform(level.winPlatformPos, level.winPlatformSize, physics);
+    win->physics.isWinPlatform = true;
+    win->renderable.glow = { 0, .4, .9 };
+    win->renderable.color = { .05, .05, .05, 1.0 };
+
+    bombInventory = level.startBombs;
+
+    physics->SetPlayerPos(level.startPos);
   }
 };

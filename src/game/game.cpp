@@ -37,4 +37,14 @@ namespace Game
 
     assert(0 && "Tried to delete an object that didn't exist!");
   }
+
+  void EntityManager::Clear()
+  {
+    for (auto* object : objects)
+    {
+      delete object;
+    }
+
+    objects.clear();
+  }
 }

@@ -158,7 +158,7 @@ struct PhysicsImpl
   const float accelerationGround = 50.0f;
   const float accelerationAir = 15.0f;
   const float decelerationGround = 40.0f;
-  const float decelerationAir = 3.0f;
+  const float decelerationAir = 1.0f;
   const float moveSpeed = 7.0;
   const float maxXZSpeed = moveSpeed;
 
@@ -264,6 +264,27 @@ struct PhysicsImpl
     delete gContactReportCallback;
   }
 
+  void Reset()
+  {
+    for (auto& [actor, object] : gActorToObject)
+    {
+      actor->release();
+    }
+
+    gActorToObject.clear();
+    gObjectToActor.clear();
+
+    // make placement indicator
+    placementIndicator = world->MakeBox({ 0, 0, 0 }, glm::vec3(EXPLOSIVE_SIZE));
+    placementIndicator->renderable.color = glm::vec4(0.5, 0.5, 0.5, 1.0);
+  }
+
+  void SetPlayerPos(glm::vec3 pos)
+  {
+    controller->setPosition({ pos.x, pos.y, pos.z });
+    pVel = glm::vec3(0);
+  }
+
   void FreeActor(PxRigidActor* actor)
   {
     assert(gActorToObject.contains(actor));
@@ -317,6 +338,7 @@ struct PhysicsImpl
       glm::vec3 dir = glm::normalize(world->camera.viewInfo.position - object->transform.position);
       glm::vec3 force = dir * forceStr;
       pVel += force;
+      pVel.y += 10;
       pExploded = true;
     }
 
@@ -370,10 +392,6 @@ struct PhysicsImpl
     controller = gCManager->createController(desc);
     auto vp = world->camera.viewInfo.position;
     controller->setPosition({ vp.x, vp.y, vp.z });
-
-    // make placement indicator
-    placementIndicator = world->MakeBox({ 0, 0, 0 }, glm::vec3(EXPLOSIVE_SIZE));
-    placementIndicator->renderable.color = glm::vec4(0.5, 0.5, 0.5, 1.0);
   }
 
   void SimulatePlayer(float dt)
@@ -800,6 +818,16 @@ namespace Game
   void Physics::Simulate(float dt)
   {
     impl_->Simulate(dt);
+  }
+
+  void Physics::SetPlayerPos(glm::vec3 pos)
+  {
+    impl_->SetPlayerPos(pos);
+  }
+
+  void Physics::Reset()
+  {
+    impl_->Reset();
   }
 
   //void Physics::AddObject(GameObject* object, MaterialType material, collider_t mesh)

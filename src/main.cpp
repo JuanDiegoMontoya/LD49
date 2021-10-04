@@ -172,16 +172,6 @@ int main()
     if (world.cheats)
     {
       ImGui::Text("Cheats Active!");
-
-      if (!world.paused)
-      {
-        if (world.io->KeysDownDuration[GLFW_KEY_V] == 0)
-        {
-          float dist = 5;
-          glm::vec3 pos = world.camera.viewInfo.position + world.camera.viewInfo.GetForwardDir() * dist;
-          world.MakeExplosive(pos, &physics);
-        }
-      }
     }
     ImGui::Text("Bomb inventory: %d", world.bombInventory);
     ImGui::Text("E: pickup bomb");

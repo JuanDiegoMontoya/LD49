@@ -162,12 +162,6 @@ struct PhysicsImpl
   const float moveSpeed = 7.0;
   const float maxXZSpeed = moveSpeed;
 
-  const float EXPLOSION_RECURSE_DIST = 10.0;
-  const float EXPLOSION_MAX_PLAYER_DIST = 15.0;
-  const float EXPLOSION_MAX_OBJECT_DIST = 10.0;
-  const float EXPLOSION_PLAYER_FORCE = 50.0;
-  const float EXPLOSION_OBJECT_FORCE = 30.0;
-
   const double tick = 1.0 / 50.0;
   bool resultsReady = true;
   double accumulator = 0;
@@ -319,6 +313,7 @@ struct PhysicsImpl
     if (dist < EXPLOSION_MAX_PLAYER_DIST)
     {
       float forceStr = glm::min(EXPLOSION_PLAYER_FORCE / (dist), EXPLOSION_PLAYER_FORCE);
+      forceStr = glm::max(EXPLOSION_MIN_PLAYER_FORCE, forceStr);
       glm::vec3 dir = glm::normalize(world->camera.viewInfo.position - object->transform.position);
       glm::vec3 force = dir * forceStr;
       pVel += force;
@@ -524,11 +519,12 @@ struct PhysicsImpl
       }
     }
 
+    // remove glow from all 
     for (auto* object : world->entityManager.GetObjects())
     {
       if (object->type == EntityType::EXPLOSIVE)
       {
-        object->renderable.glow = { 0, 0, 0 };
+        object->renderable.glow = EXPLOSIVE_BASE_GLOW;
       }
     }
 
@@ -555,6 +551,13 @@ struct PhysicsImpl
           if (obj->type == EntityType::EXPLOSIVE)
           {
             obj->renderable.glow = SELECT_GLOW;
+
+            if (world->io->KeysDown[GLFW_KEY_E])
+            {
+              RemoveObject(obj);
+              world->entityManager.DestroyEntity(obj->entity);
+              world->bombInventory++;
+            }
           }
         }
       }
@@ -565,7 +568,7 @@ struct PhysicsImpl
       placementIndicator->transform.position = vi.position + vi.GetForwardDir() * SELECT_DISTANCE;
 
       // show bomb outline if holding F
-      if (world->io->KeysDown[GLFW_KEY_F] && world->bombInventory > 0)
+      if (world->io->KeysDown[GLFW_KEY_F] && (world->bombInventory > 0 || world->cheats))
       {
         placementIndicator->renderable.visible = true;
         placementIndicator->renderable.glow = PLACEMENT_VALID;
@@ -586,8 +589,11 @@ struct PhysicsImpl
       }
 
       // place the bomb on release
-      if (world->io->KeysDownDuration[GLFW_KEY_F] == -1 && world->io->KeysDownDurationPrev[GLFW_KEY_F] >= 0 && world->bombInventory > 0)
+      if (world->io->KeysDownDuration[GLFW_KEY_F] == -1 && 
+        world->io->KeysDownDurationPrev[GLFW_KEY_F] >= 0 && 
+        (world->bombInventory > 0 || world->cheats))
       {
+        world->bombInventory--;
         glm::vec3 pos = world->camera.viewInfo.position + world->camera.viewInfo.GetForwardDir() * SELECT_DISTANCE;
         world->MakeExplosive(pos, physics);
       }
@@ -628,7 +634,7 @@ struct PhysicsImpl
         gScene->simulate(tick);
         resultsReady = false;
       }
-      if (gScene->fetchResults(true))
+      if (gScene->fetchResults(false))
       {
         resultsReady = true;
         accumulator -= tick;
@@ -638,8 +644,6 @@ struct PhysicsImpl
 
     if (!asdf)
       return;
-
-    const int numstatic = gScene->getNbActors(PxActorTypeFlag::eRIGID_STATIC);
 
     // update all entity transforms whose actor counterpart was updated
     const auto actorTypes = PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC;

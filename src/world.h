@@ -5,15 +5,24 @@
 #include "game/game.h"
 #include "game/physics.h"
 
-constexpr glm::vec4 EXPLOSIVE_COLOR{ .8, .4, .1, 1.0 };
+constexpr glm::vec4 EXPLOSIVE_COLOR{ 1.0, .3, .1, 1.0 };
+constexpr glm::vec3 EXPLOSIVE_BASE_GLOW{ .2, 0, 0 };
+constexpr float EXPLOSIVE_TRIGGER_FORCE = 15000.0;
 constexpr float EXPLOSIVE_SIZE = 0.7f;
-constexpr glm::vec3 SELECT_GLOW{ 0.3f };
+constexpr float EXPLOSION_RECURSE_DIST = 10.0;
+constexpr float EXPLOSION_MAX_PLAYER_DIST = 8.0;
+constexpr float EXPLOSION_MAX_OBJECT_DIST = 10.0;
+constexpr float EXPLOSION_PLAYER_FORCE = 30.0;
+constexpr float EXPLOSION_MIN_PLAYER_FORCE = 10.0;
+constexpr float EXPLOSION_OBJECT_FORCE = 30.0;
+
 constexpr float PLAYER_HEIGHT = 2.0f;
 constexpr float PLAYER_RADIUS = 0.7f;
+
+constexpr glm::vec3 SELECT_GLOW{ 0.3f };
 constexpr float SELECT_DISTANCE = 3.0f;
 constexpr glm::vec3 PLACEMENT_VALID{ .1, .5, .1 };
 constexpr glm::vec3 PLACEMENT_INVALID{ .5, .1, .1 };
-constexpr float EXPLOSIVE_TRIGGER_FORCE = 15000.0;
 
 struct World
 {

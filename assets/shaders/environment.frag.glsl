@@ -1,5 +1,6 @@
 #version 460 core
 
+uniform mat4 u_viewProj;
 uniform mat4 u_invViewProj;
 uniform vec3 u_viewPos;
 uniform float u_time;
@@ -123,6 +124,14 @@ void main()
     }
 
     vec3 hitp = u_viewPos + dir * t_y;
+
+    vec4 hitpProj =  u_viewProj * vec4(hitp, 1.0);
+
+    gl_FragDepth = 1.0;
+    if (t_y > 0)
+    {
+        gl_FragDepth = hitpProj.z / hitpProj.w;
+    }
 
     if (t_y >= 0.001)
     {

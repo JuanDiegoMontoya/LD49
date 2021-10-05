@@ -253,7 +253,7 @@ int main()
           "WASD       : walk\n"
           "Mouse      : look\n"
           "Spacebar   : jump\n"
-          "E          : pickup bomb\n"
+          "E          : pick up bomb\n"
           "F (hold)   : bomb placement guide\n"
           "F (release): place bomb\n"
           "Escape     : pause/unpause game"

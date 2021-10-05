@@ -268,6 +268,7 @@ namespace GFX
     void DrawEnvironment(const Camera& camera)
     {
       environmentShader.Bind();
+      environmentShader.SetMat4("u_viewProj", camera.GetViewProj());
       environmentShader.SetMat4("u_invViewProj", glm::inverse(camera.GetViewProj()));
       environmentShader.SetVec3("u_viewPos", camera.viewInfo.position);
       environmentShader.SetFloat("u_time", gTime);

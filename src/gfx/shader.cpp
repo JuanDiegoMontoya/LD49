@@ -200,7 +200,9 @@ namespace GFX
 
     glAttachShader(program, vertexShader);
     glAttachShader(program, fragmentShader);
-    LinkProgram(program);
+
+    try { LinkProgram(program); }
+    catch (std::runtime_error& e) { glDeleteProgram(program); throw e; }
 
     return Shader
     {

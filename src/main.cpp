@@ -251,6 +251,7 @@ int main()
       {
         ImGui::Text(
           "WASD       : walk\n"
+          "Mouse      : look\n"
           "Spacebar   : jump\n"
           "E          : pickup bomb\n"
           "F (hold)   : bomb placement guide\n"

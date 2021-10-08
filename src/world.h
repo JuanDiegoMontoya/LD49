@@ -50,7 +50,7 @@ enum class GameState
 
 struct World
 {
-  float mouseSensitivity = 0.003f;
+  float mouseSensitivity = 0.002f;
   bool cheats = false;
   GameState gameState = GameState::PAUSED;
   int bombInventory = 1;

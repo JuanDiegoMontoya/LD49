@@ -3,35 +3,40 @@
 // level definitions
 namespace Game
 {
-  extern Level level1;
-  extern Level level2;
-  extern Level level3;
-  extern Level level4;
-  extern Level level5;
-  extern Level level6;
-  extern Level level7;
-  extern Level level8;
+  extern Level level_explosive_entrance;
+  extern Level level_high_jump;
+  extern Level level_short_supply;
+  extern Level level_rock_climb;
+  extern Level level_claustrophobia;
+  extern Level level_skip_hop;
+  extern Level level_surface_tension;
+  extern Level level_exploiter;
+  extern Level level_blitz;
+  extern Level level_leap_of_faith;
 
   std::vector<Level*> levels
   {
-    &level1,
-    &level2,
-    &level3,
-    &level4,
-    &level5,
-    &level6,
-    &level7,
-    &level8,
+    &level_explosive_entrance,
+    &level_high_jump,
+    &level_short_supply,
+    &level_rock_climb,
+    &level_claustrophobia,
+    &level_skip_hop,
+    &level_surface_tension,
+    &level_exploiter,
+    &level_blitz,
+    &level_leap_of_faith,
   };
 
-  Level level1
+  Level level_explosive_entrance
   {
     .name = "An Explosive Entrance",
 
-    .hint = "Drop bombs from high to detonate them",
+    .hint = "Drop or jump onto bombs to detonate them",
 
     .bombs =
     {
+      { 5, 3, 0 },
     },
 
     .smallPlatforms =
@@ -55,14 +60,14 @@ namespace Game
 
     .winPlatformSize = { 5, 1, 10 },
 
-    .startBombs = 99,
+    .startBombs = 4,
 
     .startPos = { 0, 5, 0 },
 
-    .nextLevel = &level2
+    .nextLevel = &level_high_jump
   };
 
-  Level level2
+  Level level_high_jump
   {
     .name = "High Jump",
 
@@ -97,10 +102,10 @@ namespace Game
 
     .startPos = { 0, 5, 0 },
 
-    .nextLevel = &level3
+    .nextLevel = &level_short_supply
   };
 
-  Level level3
+  Level level_short_supply
   {
     .name = "Short Supply",
 
@@ -138,10 +143,53 @@ namespace Game
 
     .startPos = { 0, 5, 0 },
 
-    .nextLevel = &level4
+    .nextLevel = &level_claustrophobia
   };
 
-  Level level4
+  Level level_claustrophobia
+  {
+    .name = "Claustrophobia",
+
+    .hint = "Jump and put the bomb under youself",
+
+    .bombs =
+    {
+    },
+
+    .smallPlatforms =
+    {
+      { 0, 10, 0 },
+    },
+
+    .mediumPlatforms =
+    {
+    },
+
+    .largePlatforms =
+    {
+    },
+
+    .customPlatforms =
+    {
+      { { 2, 15, 0 }, { 1, 6, 3 } },
+      { { -2, 15, 0 }, { 1, 6, 3 } },
+
+      { { 0, 15, 2 }, { 3, 6, 1 } },
+      { { 0, 15, -2 }, { 3, 6, 1 } },
+    },
+
+    .winPlatformPos = { 0, 1, 0 },
+
+    .winPlatformSize = { 8, 1, 8 },
+
+    .startBombs = 1,
+
+    .startPos = { 0, 15, 0 },
+
+    .nextLevel = &level_skip_hop
+  };
+
+  Level level_skip_hop
   {
     .name = "Skip and a Hop",
 
@@ -177,10 +225,60 @@ namespace Game
 
     .startPos = { 0, 5, 0 },
 
-    .nextLevel = &level5
+    .nextLevel = &level_rock_climb
   };
 
-  Level level5
+  Level level_rock_climb
+  {
+    .name = "Rock Climb",
+
+    .hint = "Scale the cliff!",
+
+    .bombs =
+    {
+      { 3, 2.5, -1 },
+      { 3, 2.5, 1 },
+
+      { 10, 21, -5 },
+      { 10, 21, 1 },
+
+      { 12, 41, 5 },
+
+      { 14, 51, 0 },
+    },
+
+    .smallPlatforms =
+    {
+    },
+
+    .mediumPlatforms =
+    {
+      { 0, 1, 0 },
+    },
+
+    .largePlatforms =
+    {
+    },
+
+    .customPlatforms =
+    {
+      { { 10, 10, 0 }, { 1, 10, 10 } },
+      { { 12, 30, 0 }, { 1, 10, 10 } },
+      { { 14, 45, 0 }, { 1, 5, 10 } },
+    },
+
+    .winPlatformPos = { 40, 10, 0 },
+
+    .winPlatformSize = { 3, 1, 3 },
+
+    .startBombs = 0,
+
+    .startPos = { 0, 5, 0 },
+
+    .nextLevel = &level_surface_tension
+  };
+
+  Level level_surface_tension
   {
     .name = "Surface Tension",
 
@@ -236,16 +334,16 @@ namespace Game
 
     .winPlatformPos = { 80, 5, 0 },
 
-    .winPlatformSize = { 2, 2, 2 },
+    .winPlatformSize = { 3, 3, 3 },
 
     .startBombs = 0,
 
     .startPos = { 0, 5, 0 },
 
-    .nextLevel = &level6
+    .nextLevel = &level_exploiter
   };
 
-  Level level6
+  Level level_exploiter
   {
     .name = "Exploiter",
 
@@ -257,11 +355,11 @@ namespace Game
 
     .smallPlatforms =
     {
-      { 40, 11, 0 }
     },
 
     .mediumPlatforms =
     {
+      { 40, 11, 0 }
     },
 
     .largePlatforms =
@@ -275,16 +373,16 @@ namespace Game
 
     .winPlatformPos = { 40, 10, 0 },
 
-    .winPlatformSize = { 1, .51, 1 },
+    .winPlatformSize = { 2, .51, 2 },
 
     .startBombs = 10,
 
     .startPos = { 0, 5, 0 },
 
-    .nextLevel = &level7
+    .nextLevel = &level_blitz
   };
 
-  Level level7
+  Level level_blitz
   {
     .name = "Blitzing Bomberman",
 
@@ -324,10 +422,10 @@ namespace Game
 
     .startPos = { 0, 5, 0 },
 
-    .nextLevel = &level8
+    .nextLevel = &level_leap_of_faith
   };
 
-  Level level8
+  Level level_leap_of_faith
   {
     .name = "Leap of Faith",
 

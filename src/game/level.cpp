@@ -184,7 +184,7 @@ namespace Game
   {
     .name = "Surface Tension",
 
-    .hint = "Don't detonate all the bombs at once",
+    .hint = "Be very careful",
 
     .bombs =
     {
@@ -234,9 +234,9 @@ namespace Game
     {
     },
 
-    .winPlatformPos = { 40, 5, 0 },
+    .winPlatformPos = { 80, 5, 0 },
 
-    .winPlatformSize = { 2, 1, 2 },
+    .winPlatformSize = { 2, 2, 2 },
 
     .startBombs = 0,
 

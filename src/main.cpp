@@ -84,7 +84,13 @@ int main()
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init();
   ImGui::StyleColorsDark();
-  
+
+  float SCALE = 1.0f;
+  ImFontConfig cfg;
+  cfg.SizePixels = 13 * SCALE;
+  //ImGui::GetIO().Fonts->AddFontDefault(&cfg)->DisplayOffset.y = SCALE;
+  ImGui::GetIO().Fonts->AddFontDefault(&cfg)->Scale = SCALE;
+
   int frameWidth, frameHeight;
   glfwGetFramebufferSize(window, &frameWidth, &frameHeight);
 
@@ -181,7 +187,7 @@ int main()
     case GameState::PAUSED:
     {
       ImGui::SetNextWindowPos(ImVec2(world.io->DisplaySize.x * 0.5f, world.io->DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-      ImGui::SetNextWindowSize(ImVec2(400, 300));
+      ImGui::SetNextWindowSize(ImVec2(400, 400));
       ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration);
       
       ImGui::Text("Level: %s", world.currentLevel->name);
@@ -331,12 +337,14 @@ int main()
         "You didn't put your oven mitts on"
       };
       ImGui::Text("%s", deathMessages[rand() % IM_ARRAYSIZE(deathMessages)]);
-      if (ImGui::Button("Try Again", { -1, 0 }))
+      if (ImGui::Button("Retry", { -1, 0 }))
       {
         world.LoadLevel(*world.currentLevel, &physics);
       }
 
-      if (ImGui::Button("Ragequit", { -1, 0 }))
+      ImGui::NewLine();
+
+      if (ImGui::Button("Quit", { -1, 0 }))
       {
         glfwSetWindowShouldClose(window, true);
       }
@@ -357,6 +365,8 @@ int main()
         {
           world.LoadLevel(*world.currentLevel->nextLevel, &physics);
         }
+
+        ImGui::NewLine();
 
         if (ImGui::Button("Replay Level", { -1, 0 }))
         {
@@ -381,7 +391,7 @@ int main()
       world.cheats = true;
 
       ImGui::NewLine();
-      ImGui::Text("Load Level");
+      ImGui::Text("Load Previous Level");
       for (const auto& level : Game::levels)
       {
         if (ImGui::Button(level->name, { -1, 0 }))

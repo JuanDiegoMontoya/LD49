@@ -16,6 +16,7 @@
 constexpr glm::vec4 EXPLOSIVE_COLOR{ 1.0, .3, .1, 1.0 };
 constexpr glm::vec3 EXPLOSIVE_BASE_GLOW{ .2, 0, 0 };
 constexpr float EXPLOSIVE_TRIGGER_FORCE = 15000.0;
+constexpr float EXPLOSION_PLAYER_TRIGGER_FORCE = 7.0;
 constexpr float EXPLOSIVE_SIZE = 0.7f;
 constexpr float EXPLOSION_RECURSE_DIST = 7.0;
 constexpr float EXPLOSION_MAX_PLAYER_DIST = 8.0;
@@ -23,7 +24,6 @@ constexpr float EXPLOSION_MAX_OBJECT_DIST = 10.0;
 constexpr float EXPLOSION_PLAYER_FORCE = 20.0;
 constexpr float EXPLOSION_MIN_PLAYER_FORCE = 10.0;
 constexpr float EXPLOSION_OBJECT_FORCE = 30.0;
-constexpr float EXPLOSION_PLAYER_TRIGGER_FORCE = 10.0;
 
 constexpr float PLAYER_HEIGHT = 2.0f;
 constexpr float PLAYER_RADIUS = 0.7f;

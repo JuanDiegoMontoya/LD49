@@ -179,10 +179,10 @@ struct PhysicsImpl
   const float gravity = -15;
   const float jump = 7.2;
   const float accelerationGround = 50.0f;
-  const float accelerationAir = 8.0f;
+  const float accelerationAir = 15.0f;
   const float decelerationGround = 40.0f;
   const float decelerationAir = 0.0f;
-  const float moveSpeed = 7.0;
+  const float moveSpeed = 6.5;
   const float maxXZSpeed = moveSpeed;
 
   const double tick = 1.0 / 50.0;

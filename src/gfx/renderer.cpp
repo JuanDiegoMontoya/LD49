@@ -13,6 +13,7 @@
 #include "shader.h"
 #include "mesh.h"
 #include "camera.h"
+#include "components.h"
 
 static void GLAPIENTRY glErrorCallback(
   GLenum source,
@@ -277,7 +278,6 @@ namespace GFX
       glBindVertexArray(emptyVao);
       glDrawArrays(GL_TRIANGLES, 0, 3);
     }
-
   };
 
   Renderer::Renderer()

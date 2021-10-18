@@ -1,7 +1,10 @@
 #pragma once
 
 #include "macros.h"
-#include "components.h"
+
+struct Transform;
+struct MeshHandle;
+struct Renderable;
 
 namespace GFX
 {

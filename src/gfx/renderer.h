@@ -19,7 +19,7 @@ namespace GFX
 
     NOCOPY_NOMOVE(Renderer)
 
-    MeshHandle GenerateMeshHandle(const Mesh& mesh);
+    [[nodiscard]] MeshHandle GenerateMeshHandle(const Mesh& mesh);
 
     void Submit(const Transform& transform,
       const MeshHandle& mesh,

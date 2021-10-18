@@ -156,6 +156,7 @@ namespace GFX
     {
       glDeleteVertexArrays(1, &emptyVao);
       glDeleteVertexArrays(1, &standardVao);
+      // everything else is leaked because this class is instantiated once and destroyed when the program terminates
     }
 
     void GL_ResetState()

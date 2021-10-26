@@ -1,6 +1,7 @@
 #pragma once
 
 #include "macros.h"
+#include "game.h"
 
 #include <glm/vec3.hpp>
 
@@ -51,10 +52,10 @@ namespace Game
     void Reset();
 
     //void AddObject(GameObject* object, MaterialType material, collider_t mesh);
-    void AddObject(GameObject* object, MaterialType material, const Shape* shape);
-    void RemoveObject(GameObject* object);
+    void AddObject(entity_t entity, MaterialType material, const Shape* shape);
+    void RemoveObject(entity_t entity);
 
-    void SetObjectTransform(GameObject* object, Transform transform);
+    void SetObjectTransform(entity_t entity, Transform transform);
 
   private:
     PhysicsImpl* impl_{};

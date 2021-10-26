@@ -4,6 +4,7 @@
 #include <iostream>
 #include <format>
 #include <concepts>
+#include <atomic>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -84,7 +85,7 @@ namespace GFX
   {
     struct RenderTuple
     {
-      Transform transform;
+      glm::mat4 model;
       MeshHandle mesh;
       Renderable renderable;
     };
@@ -116,6 +117,7 @@ namespace GFX
     glm::vec3 sunDir = { 0, -1, 0 };
     float blendDay = 0;
     double gTime = 0;
+    std::atomic_uint32_t drawIndex{ 0 };
 
     ////////////////////////////////////////////////////////
     // functions
@@ -215,14 +217,21 @@ namespace GFX
       glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
+    void BeginDraw(uint32_t numObjects)
+    {
+      drawIndex.store(0);
+      renderables.resize(numObjects);
+    }
+
     void Submit(const Transform& transform,
       const MeshHandle& mesh,
       const Renderable& renderable)
     {
-      renderables.push_back({ transform, mesh, renderable });
+      uint32_t myIndex = drawIndex.fetch_add(1);
+      renderables[myIndex] = { transform.GetModel(), mesh, renderable };
     }
 
-    void Draw(const Camera& camera, float dt)
+    void EndDraw(const Camera& camera, float dt)
     {
       gTime += dt;
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -247,14 +256,12 @@ namespace GFX
       glBindVertexArray(standardVao);
 
       // TODO: sort by mesh to reduce binding
-      for (const auto& [transform, mesh, renderable] : renderables)
+      for (const auto& [model, mesh, renderable] : renderables)
       {
         if (!renderable.visible)
         {
           continue;
         }
-
-        glm::mat4 model = transform.GetModel();
 
         standardShader.SetMat4("u_model", model);
         standardShader.SetVec4("u_color", renderable.color);
@@ -305,6 +312,11 @@ namespace GFX
     return handle;
   }
 
+  void Renderer::BeginDraw(uint32_t numObjects)
+  {
+    impl_->BeginDraw(numObjects);
+  }
+
   void Renderer::Submit(const Transform& transform,
     const MeshHandle& mesh,
     const Renderable& renderable)
@@ -312,8 +324,8 @@ namespace GFX
     impl_->Submit(transform, mesh, renderable);
   }
 
-  void Renderer::Draw(const Camera& camera, float dt)
+  void Renderer::EndDraw(const Camera& camera, float dt)
   {
-    impl_->Draw(camera, dt);
+    impl_->EndDraw(camera, dt);
   }
 }

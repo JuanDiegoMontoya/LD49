@@ -1,6 +1,8 @@
 #include <iostream>
 #include <format>
 #include <stdexcept>
+#include <algorithm>
+#include <execution>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -415,11 +417,13 @@ int main()
 
 
     // draw everything
-    for (const auto& obj : world.entityManager.GetObjects())
-    {
-      renderer.Submit(obj->transform, obj->mesh, obj->renderable);
-    }
-    renderer.Draw(world.camera, dt);
+    auto& objects = world.entityManager.GetObjects();
+    renderer.BeginDraw(objects.size());
+    std::for_each(std::execution::par_unseq, objects.begin(), objects.end(), [&renderer](const auto& obj)
+      {
+        renderer.Submit(obj.transform, obj.mesh, obj.renderable);
+      });
+    renderer.EndDraw(world.camera, dt);
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

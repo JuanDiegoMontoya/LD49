@@ -33,6 +33,7 @@
 #include <PhysX/physx/include/PxSimulationEventCallback.h>
 
 #define PX_RELEASE(x)	if(x)	{ x->release(); x = NULL;	}
+#define GET_OBJ(ent) world->entityManager.GetObject(ent)
 
 using namespace physx;
 
@@ -173,7 +174,7 @@ struct PhysicsImpl
   ////////////////////////////////////////////////////////
   // objects
   ////////////////////////////////////////////////////////
-  Game::GameObject* placementIndicator{};
+  Game::entity_t placementIndicator{};
   Game::Physics* physics{};
 
   const float gravity = -15;
@@ -185,7 +186,7 @@ struct PhysicsImpl
   const float moveSpeed = 6.5;
   const float maxXZSpeed = moveSpeed;
 
-  const double tick = 1.0 / 50.0;
+  const double tick = 1.0 / 100.0;
   bool resultsReady = true;
   double accumulator = 0;
 
@@ -213,8 +214,8 @@ struct PhysicsImpl
   physx::PxControllerManager* gCManager = nullptr;
   std::array<physx::PxMaterial*, 3> gMaterials;
 
-  std::unordered_map<physx::PxRigidActor*, Game::GameObject*> gActorToObject;
-  std::unordered_map<Game::GameObject*, physx::PxRigidActor*> gObjectToActor;
+  std::unordered_map<physx::PxRigidActor*, Game::entity_t> gActorToEntity;
+  std::unordered_map<Game::entity_t, physx::PxRigidActor*> gEntityToActor;
 
   std::unordered_set<PxRigidActor*> explodeList;
 
@@ -289,18 +290,19 @@ struct PhysicsImpl
 
   void Reset()
   {
-    for (auto& [actor, object] : gActorToObject)
+    for (auto& [actor, object] : gActorToEntity)
     {
       actor->release();
     }
 
-    gActorToObject.clear();
-    gObjectToActor.clear();
+    gActorToEntity.clear();
+    gEntityToActor.clear();
 
     // make placement indicator
-    placementIndicator = world->MakeBox({ 0, 0, 0 }, glm::vec3(EXPLOSIVE_SIZE));
-    placementIndicator->renderable.color = glm::vec4(0.5, 0.5, 0.5, 1.0);
-    assert(placementIndicator->entity > 0);
+    auto& newBox = world->MakeBox({ 0, 0, 0 }, glm::vec3(EXPLOSIVE_SIZE));
+    newBox.renderable.color = glm::vec4(0.5, 0.5, 0.5, 1.0);
+    placementIndicator = newBox.entity;
+    assert(placementIndicator > 0);
   }
 
   void SetPlayerPos(glm::vec3 pos)
@@ -311,45 +313,49 @@ struct PhysicsImpl
 
   void FreeActor(PxRigidActor* actor)
   {
-    assert(gActorToObject.contains(actor));
-    auto* object = gActorToObject[actor];
-    assert(gObjectToActor.contains(object));
-    gActorToObject.erase(actor);
-    gObjectToActor.erase(object);
+    assert(gActorToEntity.contains(actor));
+    auto entity = gActorToEntity[actor];
+    assert(gEntityToActor.contains(entity));
+    gActorToEntity.erase(actor);
+    gEntityToActor.erase(entity);
     actor->release();
   }
 
   void Explode(PxRigidActor* actor)
   {
-    assert(gActorToObject.contains(actor));
-    auto* object = gActorToObject[actor];
+    assert(gActorToEntity.contains(actor));
+    auto entity = gActorToEntity[actor];
     
-    if (!object)
+    if (!entity)
     {
       return;
     }
 
+    glm::vec3 explosionCenter = world->entityManager.GetObject(entity).transform.position;
+
     // make a bunch of tiny spheres go flying
     for (int i = 0; i < 150; i++)
     {
-      auto* newObj = world->MakeSphere(object->transform.position, rng(.2, .4));
-      newObj->type = EntityType::PARTICLE;
-      newObj->particle.life = rng(0, 2);
-      newObj->particle.velocity = glm::normalize(glm::vec3(rng(-8, 8), rng(-5, 15), rng(-8, 8))) * (float)rng(22, 32);
-      newObj->particle.acceleration = glm::vec3(0, -8, 0);
-      newObj->renderable.glow = { .4, .2, .1 };
+      auto& newObj = world->MakeSphere(explosionCenter, rng(.2, .4));
+      newObj.type = EntityType::PARTICLE;
+      newObj.particle.life = rng(0, 2);
+      newObj.particle.velocity = glm::normalize(glm::vec3(rng(-8, 8), rng(-5, 15), rng(-8, 8))) * (float)rng(22, 32);
+      newObj.particle.acceleration = glm::vec3(0, -8, 0);
+      newObj.renderable.glow = { .4, .2, .1 };
     }
 
-    for (auto& [otherActor, otherObject] : gActorToObject)
+    for (auto& [otherActor, otherEntity] : gActorToEntity)
     {
       if (otherActor == actor)
       {
         continue;
       }
 
+      auto& otherObject = world->entityManager.GetObject(otherEntity);
+
       // explode other nearby explosives
-      float dist = glm::distance(otherObject->transform.position, object->transform.position);
-      if (otherObject->type == EntityType::EXPLOSIVE && dist < EXPLOSION_RECURSE_DIST)
+      float dist = glm::distance(otherObject.transform.position, explosionCenter);
+      if (otherObject.type == EntityType::EXPLOSIVE && dist < EXPLOSION_RECURSE_DIST)
       {
         explodeList.insert(otherActor);
       }
@@ -360,7 +366,7 @@ struct PhysicsImpl
         if (auto* rd = otherActor->is<PxRigidDynamic>())
         {
           float forceStr = glm::min(EXPLOSION_OBJECT_FORCE / (dist), EXPLOSION_OBJECT_FORCE);
-          glm::vec3 dir = glm::normalize(otherObject->transform.position - object->transform.position);
+          glm::vec3 dir = glm::normalize(otherObject.transform.position - explosionCenter);
           glm::vec3 force = dir * forceStr;
           rd->addForce(toPxVec3(force), PxForceMode::eVELOCITY_CHANGE);
         }
@@ -368,21 +374,21 @@ struct PhysicsImpl
     }
 
     // push the player
-    float dist = glm::distance(world->camera.viewInfo.position, object->transform.position);
+    float dist = glm::distance(world->camera.viewInfo.position, explosionCenter);
     if (dist < EXPLOSION_MAX_PLAYER_DIST)
     {
       float curSpeed = glm::max(glm::length(pVel), 4.0f);
       float reductionFactor = curSpeed / 4;
       float forceStr = glm::min(EXPLOSION_PLAYER_FORCE / (dist), EXPLOSION_PLAYER_FORCE);
       forceStr = glm::max(EXPLOSION_MIN_PLAYER_FORCE, forceStr) / reductionFactor;
-      glm::vec3 dir = glm::normalize(world->camera.viewInfo.position - object->transform.position);
+      glm::vec3 dir = glm::normalize(world->camera.viewInfo.position - explosionCenter);
       glm::vec3 force = dir * forceStr;
       pVel += force;
       pVel.y += 6 / (reductionFactor / 2); // small Y factor so first explosion always pushes the player up a bit
       pExploded = true;
     }
 
-    world->entityManager.DestroyEntity(object->entity);
+    world->entityManager.DestroyEntity(entity);
     FreeActor(actor);
   }
 
@@ -588,11 +594,11 @@ struct PhysicsImpl
     }
 
     // remove glow from all 
-    for (auto* object : world->entityManager.GetObjects())
+    for (auto& object : world->entityManager.GetObjects())
     {
-      if (object->type == EntityType::EXPLOSIVE)
+      if (object.type == EntityType::EXPLOSIVE)
       {
-        object->renderable.glow = EXPLOSIVE_BASE_GLOW;
+        object.renderable.glow = EXPLOSIVE_BASE_GLOW;
       }
     }
 
@@ -613,17 +619,18 @@ struct PhysicsImpl
         std::sort(hits.begin(), hits.end(), [](const auto& a, const auto& b) { return a.distance < b.distance; });
         const auto& closest = hits[1];
 
-        if (gActorToObject.contains(closest.actor))
+        if (gActorToEntity.contains(closest.actor))
         {
-          auto* obj = gActorToObject[closest.actor];
-          if (obj->type == EntityType::EXPLOSIVE && world->bombInventory < POCKET_SIZE)
+          auto entity = gActorToEntity[closest.actor];
+          auto& obj = GET_OBJ(entity);
+          if (obj.type == EntityType::EXPLOSIVE && world->bombInventory < POCKET_SIZE)
           {
-            obj->renderable.glow = SELECT_GLOW;
+            obj.renderable.glow = SELECT_GLOW;
 
             if (world->io->KeysDownDuration[GLFW_KEY_E] == 0.0f)
             {
-              RemoveObject(obj);
-              world->entityManager.DestroyEntity(obj->entity);
+              RemoveObject(entity);
+              world->entityManager.DestroyEntity(entity);
               world->bombInventory++;
             }
           }
@@ -632,15 +639,15 @@ struct PhysicsImpl
     }
 
     {
-      assert(world->entityManager.GetObject(placementIndicator->entity));
-      placementIndicator->renderable.visible = false;
-      placementIndicator->transform.position = vi.position + vi.GetForwardDir() * SELECT_DISTANCE;
+      auto& placementObj = GET_OBJ(placementIndicator);
+      placementObj.renderable.visible = false;
+      placementObj.transform.position = vi.position + vi.GetForwardDir() * SELECT_DISTANCE;
 
       // show bomb outline if holding F
       if (world->io->KeysDown[GLFW_KEY_F] && (world->bombInventory > 0 || world->cheats))
       {
-        placementIndicator->renderable.visible = true;
-        placementIndicator->renderable.glow = PLACEMENT_VALID;
+        placementObj.renderable.visible = true;
+        placementObj.renderable.glow = PLACEMENT_VALID;
 
         // do query to show if valid placement position (can't figure out why this always returns false)
         //PxOverlapBuffer hit;
@@ -671,7 +678,7 @@ struct PhysicsImpl
 
   void Simulate(float dt)
   {
-    assert(placementIndicator->entity > 0);
+    assert(placementIndicator > 0);
 
     if (controller && world)
     {
@@ -694,7 +701,7 @@ struct PhysicsImpl
       }
     }
 
-    assert(placementIndicator->entity > 0);
+    assert(placementIndicator > 0);
 
     bool asdf = false;
     accumulator += dt;
@@ -713,31 +720,31 @@ struct PhysicsImpl
         asdf = true;
 
         // simulate particles here
-        std::vector<Game::GameObject*> deleteList;
-        for (auto* obj : world->entityManager.GetObjects())
+        std::vector<Game::entity_t> deleteList;
+        for (auto& obj : world->entityManager.GetObjects())
         {
-          if (obj->type == EntityType::PARTICLE)
+          if (obj.type == EntityType::PARTICLE)
           {
-            assert(!gObjectToActor.contains(obj));
-            obj->particle.velocity *= 0.98;
-            obj->particle.velocity += obj->particle.acceleration * (float)tick;
-            obj->transform.position += obj->particle.velocity * (float)tick;
-            obj->particle.life -= tick;
-            if (obj->particle.life < 0)
+            assert(!gEntityToActor.contains(obj.entity));
+            obj.particle.velocity *= 0.98;
+            obj.particle.velocity += obj.particle.acceleration * (float)tick;
+            obj.transform.position += obj.particle.velocity * (float)tick;
+            obj.particle.life -= tick;
+            if (obj.particle.life < 0)
             {
-              deleteList.push_back(obj);
+              deleteList.push_back(obj.entity);
             }
           }
         }
 
-        for (auto* obj : deleteList)
+        for (auto entity : deleteList)
         {
-          world->entityManager.DestroyEntity(obj->entity);
+          world->entityManager.DestroyEntity(entity);
         }
       }
     }
 
-    assert(placementIndicator->entity > 0);
+    assert(placementIndicator > 0);
 
     if (!asdf)
       return;
@@ -756,29 +763,31 @@ struct PhysicsImpl
           continue;
         const auto& pose = actor->getGlobalPose();
 
-        auto objectIt = gActorToObject.find(actor);
-        if (objectIt != gActorToObject.end())
+        auto entityIt = gActorToEntity.find(actor);
+        if (entityIt != gActorToEntity.end())
         {
           //auto& tr = entityit->second.GetComponent<Component::Transform>();
           auto* dynamic = actor->is<PxRigidDynamic>();
 
           glm::quat q(toGlmQuat(pose.q));
-          objectIt->second->transform.position = toGlmVec3(pose.p);
-          objectIt->second->transform.rotation = q;
+          auto& object = world->entityManager.GetObject(entityIt->second);
+          object.transform.position = toGlmVec3(pose.p);
+          object.transform.rotation = q;
         }
       }
     }
 
-    assert(placementIndicator->entity > 0);
+    assert(placementIndicator > 0);
   }
 
-  void AddObject(Game::GameObject* object, Game::MaterialType material, Game::collider_t mesh)
+  void AddObject(Game::entity_t entity, Game::MaterialType material, Game::collider_t mesh)
   {
     assert(0 && "This function doesn't work!");
+    auto& object = GET_OBJ(entity);
     PxTriangleMeshGeometry geom(reinterpret_cast<PxTriangleMesh*>(mesh));
-    geom.scale.scale = toPxVec3(object->transform.scale);
+    geom.scale.scale = toPxVec3(object.transform.scale);
     geom.scale.rotation = toPxQuat({ 1, 0, 0, 0 });
-    auto pose = PxTransform(toPxVec3(object->transform.position), toPxQuat(object->transform.rotation));
+    auto pose = PxTransform(toPxVec3(object.transform.position), toPxQuat(object.transform.rotation));
     printf("%d %d", pose.isValid(), geom.isValid());
 
     PxRigidActor* actor{};
@@ -800,15 +809,16 @@ struct PhysicsImpl
       break;
     }
 
-    gActorToObject[actor] = object;
-    gObjectToActor[object] = actor;
+    gActorToEntity[actor] = entity;
+    gEntityToActor[entity] = actor;
 
     gScene->addActor(*actor);
   }
 
-  void AddObject(Game::GameObject* object, Game::MaterialType material, const Game::Shape* shape)
+  void AddObject(Game::entity_t entity, Game::MaterialType material, const Game::Shape* shape)
   {
-    auto pose = PxTransform(toPxVec3(object->transform.position), toPxQuat(object->transform.rotation));
+    Game::GameObject& object = world->entityManager.GetObject(entity);
+    auto pose = PxTransform(toPxVec3(object.transform.position), toPxQuat(object.transform.rotation));
 
     PxGeometry* geom;
     PxSphereGeometry sphere;
@@ -839,7 +849,7 @@ struct PhysicsImpl
     {
       auto* dynamic = PxCreateDynamic(*gPhysics, pose, *geom, *gMaterials[(int)material], 10.0f);
       actor = dynamic;
-      if (object->type == EntityType::EXPLOSIVE)
+      if (object.type == EntityType::EXPLOSIVE)
       {
         dynamic->setContactReportThreshold(EXPLOSIVE_TRIGGER_FORCE);
       }
@@ -850,26 +860,26 @@ struct PhysicsImpl
     }
 
 
-    gActorToObject[actor] = object;
-    gObjectToActor[object] = actor;
+    gActorToEntity[actor] = entity;
+    gEntityToActor[entity] = actor;
 
     gScene->addActor(*actor);
   }
 
-  void RemoveObject(Game::GameObject* object)
+  void RemoveObject(Game::entity_t entity)
   {
-    if (object)
+    if (entity)
     {
-      auto actor = gObjectToActor[object];
-      gObjectToActor.erase(object);
-      gActorToObject.erase(actor);
+      auto actor = gEntityToActor[entity];
+      gEntityToActor.erase(entity);
+      gActorToEntity.erase(actor);
       gScene->removeActor(*actor);
     }
   }
 
-  void SetObjectTransform(Game::GameObject* object, Transform transform)
+  void SetObjectTransform(Game::entity_t object, Transform transform)
   {
-    gObjectToActor[object]->setGlobalPose({ toPxVec3(transform.position), toPxQuat(transform.rotation) });
+    gEntityToActor[object]->setGlobalPose({ toPxVec3(transform.position), toPxQuat(transform.rotation) });
   }
 };
 
@@ -911,22 +921,22 @@ namespace Game
     impl_->Reset();
   }
 
-  //void Physics::AddObject(GameObject* object, MaterialType material, collider_t mesh)
+  //void Physics::AddObject(entity_t object, MaterialType material, collider_t mesh)
   //{
   //  impl_->AddObject(object, material, mesh);
   //}
 
-  void Physics::AddObject(GameObject* object, MaterialType material, const Shape* shape)
+  void Physics::AddObject(entity_t entity, MaterialType material, const Shape* shape)
   {
-    impl_->AddObject(object, material, shape);
+    impl_->AddObject(entity, material, shape);
   }
 
-  void Physics::RemoveObject(GameObject* object)
+  void Physics::RemoveObject(entity_t entity)
   {
-    impl_->RemoveObject(object);
+    impl_->RemoveObject(entity);
   }
 
-  void Physics::SetObjectTransform(GameObject* object, Transform transform)
+  void Physics::SetObjectTransform(entity_t entity, Transform transform)
   {
   }
 }
@@ -940,27 +950,29 @@ void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[m
 {
   auto* a = pairHeader.actors[0];
   auto* b = pairHeader.actors[1];
-  auto it1 = physics_->gActorToObject.find(a);
-  auto it2 = physics_->gActorToObject.find(b);
+  auto it1 = physics_->gActorToEntity.find(a);
+  auto it2 = physics_->gActorToEntity.find(b);
 
   // explode explosives on contact with lava
-  if (it1 == physics_->gActorToObject.end() && it2 != physics_->gActorToObject.end())
+  if (it1 == physics_->gActorToEntity.end() && it2 != physics_->gActorToEntity.end())
   {
     PxShape* shape;
     if (a && a->getShapes(&shape, 1) && a->getNbShapes() == 1)
     {
-      if (shape->getGeometryType() == PxGeometryType::ePLANE && it2->second->type == EntityType::EXPLOSIVE)
+      auto type = physics_->world->entityManager.GetObject(it2->second).type;
+      if (shape->getGeometryType() == PxGeometryType::ePLANE && type == EntityType::EXPLOSIVE)
       {
         physics_->explodeList.insert(b);
       }
     }
   }
-  if (it2 == physics_->gActorToObject.end() && it1 != physics_->gActorToObject.end())
+  if (it2 == physics_->gActorToEntity.end() && it1 != physics_->gActorToEntity.end())
   {
     PxShape* shape;
     if (b && b->getShapes(&shape, 1) && b->getNbShapes() == 1)
     {
-      if (shape->getGeometryType() == PxGeometryType::ePLANE && it1->second->type == EntityType::EXPLOSIVE)
+      auto type = physics_->world->entityManager.GetObject(it1->second).type;
+      if (shape->getGeometryType() == PxGeometryType::ePLANE && type == EntityType::EXPLOSIVE)
       {
         physics_->explodeList.insert(a);
       }
@@ -980,17 +992,19 @@ void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[m
         continue;
       }
 
-      if (auto ait = physics_->gActorToObject.find(a); ait != physics_->gActorToObject.end())
+      if (auto ait = physics_->gActorToEntity.find(a); ait != physics_->gActorToEntity.end())
       {
-        if (ait->second->type == EntityType::EXPLOSIVE)
+        auto type = physics_->world->entityManager.GetObject(ait->second).type;
+        if (type == EntityType::EXPLOSIVE)
         {
           physics_->explodeList.insert(a);
         }
       }
 
-      if (auto bit = physics_->gActorToObject.find(b); bit != physics_->gActorToObject.end())
+      if (auto bit = physics_->gActorToEntity.find(b); bit != physics_->gActorToEntity.end())
       {
-        if (bit->second->type == EntityType::EXPLOSIVE)
+        auto type = physics_->world->entityManager.GetObject(bit->second).type;
+        if (type == EntityType::EXPLOSIVE)
         {
           physics_->explodeList.insert(b);
         }
@@ -1001,15 +1015,17 @@ void ContactReportCallback::onContact(const PxContactPairHeader& pairHeader, [[m
 
 void UserControllerHitReport::onShapeHit(const PxControllerShapeHit& hit)
 {
-  if (hit.actor && impl_->gActorToObject.contains(hit.actor))
+  if (hit.actor && impl_->gActorToEntity.contains(hit.actor))
   {
-    auto* obj = impl_->gActorToObject[hit.actor];
-    if (obj->physics.isWinPlatform)
+    const auto ent = impl_->gActorToEntity[hit.actor];
+    const auto& obj = impl_->world->entityManager.GetObject(ent);
+
+    if (obj.physics.isWinPlatform)
     {
       impl_->world->gameState = GameState::WIN_LEVEL;
     }
 
-    if (obj->type == EntityType::EXPLOSIVE && glm::length(impl_->pVel) > EXPLOSION_PLAYER_TRIGGER_FORCE)
+    if (obj.type == EntityType::EXPLOSIVE && glm::length(impl_->pVel) > EXPLOSION_PLAYER_TRIGGER_FORCE)
     {
       impl_->explodeList.insert(hit.actor);
     }
@@ -1017,7 +1033,7 @@ void UserControllerHitReport::onShapeHit(const PxControllerShapeHit& hit)
 
   // only the lava plane doesn't have an actor, so we use this hack to detect if we hit it
   PxShape* shape;
-  if (hit.actor && !impl_->gActorToObject.contains(hit.actor))
+  if (hit.actor && !impl_->gActorToEntity.contains(hit.actor))
   {
     hit.actor->getShapes(&shape, 1);
     if (shape->getGeometryType() == PxGeometryType::ePLANE);

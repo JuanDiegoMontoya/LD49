@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "macros.h"
 
 struct Transform;
@@ -21,10 +22,11 @@ namespace GFX
 
     [[nodiscard]] MeshHandle GenerateMeshHandle(const Mesh& mesh);
 
+    void BeginDraw(uint32_t numObjects);
     void Submit(const Transform& transform,
       const MeshHandle& mesh,
       const Renderable& renderable);
-    void Draw(const Camera& camera, float dt);
+    void EndDraw(const Camera& camera, float dt);
 
   private:
     struct RendererImpl* impl_;

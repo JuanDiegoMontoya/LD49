@@ -15,7 +15,7 @@
 
 constexpr glm::vec4 EXPLOSIVE_COLOR{ 1.0, .3, .1, 1.0 };
 constexpr glm::vec3 EXPLOSIVE_BASE_GLOW{ .2, 0, 0 };
-constexpr float EXPLOSIVE_TRIGGER_FORCE = 15000.0;
+constexpr float EXPLOSIVE_TRIGGER_FORCE = 30000.0;
 constexpr float EXPLOSION_PLAYER_TRIGGER_FORCE = 7.0;
 constexpr float EXPLOSIVE_SIZE = 0.7f;
 constexpr float EXPLOSION_RECURSE_DIST = 7.0;
@@ -65,42 +65,42 @@ struct World
   MeshHandle sphereMeshHandle;
   MeshHandle cubeMeshHandle;
 
-  Game::GameObject* MakeSphere(glm::vec3 pos, float scale)
+  Game::GameObject& MakeSphere(glm::vec3 pos, float scale)
   {
-    Game::GameObject* obj = entityManager.GetObject(entityManager.CreateEntity());
-    obj->transform.position = pos;
-    obj->transform.scale = glm::vec3(scale);
-    obj->mesh = sphereMeshHandle;
-    obj->renderable.visible = true;
+    Game::GameObject& obj = entityManager.GetObject(entityManager.CreateEntity());
+    obj.transform.position = pos;
+    obj.transform.scale = glm::vec3(scale);
+    obj.mesh = sphereMeshHandle;
+    obj.renderable.visible = true;
     return obj;
   }
 
-  Game::GameObject* MakeBox(glm::vec3 pos, glm::vec3 halfExtents)
+  Game::GameObject& MakeBox(glm::vec3 pos, glm::vec3 halfExtents)
   {
-    Game::GameObject* obj = entityManager.GetObject(entityManager.CreateEntity());
-    obj->transform.position = pos;
-    obj->transform.scale = glm::vec3(halfExtents);
-    obj->mesh = cubeMeshHandle;
-    obj->renderable.visible = true;
+    Game::GameObject& obj = entityManager.GetObject(entityManager.CreateEntity());
+    obj.transform.position = pos;
+    obj.transform.scale = glm::vec3(halfExtents);
+    obj.mesh = cubeMeshHandle;
+    obj.renderable.visible = true;
     return obj;
   }
 
-  Game::GameObject* MakeExplosive(glm::vec3 pos, Game::Physics* physics)
+  Game::GameObject& MakeExplosive(glm::vec3 pos, Game::Physics* physics)
   {
-    Game::GameObject* obj = MakeBox(pos, glm::vec3(EXPLOSIVE_SIZE));
-    obj->renderable.color = EXPLOSIVE_COLOR;
-    obj->type = EntityType::EXPLOSIVE;
+    Game::GameObject& obj = MakeBox(pos, glm::vec3(EXPLOSIVE_SIZE));
+    obj.renderable.color = EXPLOSIVE_COLOR;
+    obj.type = EntityType::EXPLOSIVE;
     Game::Box box{ glm::vec3(EXPLOSIVE_SIZE) };
-    physics->AddObject(obj, Game::MaterialType::OBJECT, &box);
+    physics->AddObject(obj.entity, Game::MaterialType::OBJECT, &box);
     return obj;
   }
 
-  Game::GameObject* MakePlatform(glm::vec3 pos, glm::vec3 halfExtents, Game::Physics* physics)
+  Game::GameObject& MakePlatform(glm::vec3 pos, glm::vec3 halfExtents, Game::Physics* physics)
   {
-    auto* obj = MakeBox(pos, halfExtents);
-    obj->type = EntityType::TERRAIN;
+    Game::GameObject& obj = MakeBox(pos, halfExtents);
+    obj.type = EntityType::TERRAIN;
     Game::Box box{ halfExtents };
-    physics->AddObject(obj, Game::MaterialType::TERRAIN, &box);
+    physics->AddObject(obj.entity, Game::MaterialType::TERRAIN, &box);
     return obj;
   }
 
@@ -138,10 +138,10 @@ struct World
       MakePlatform(pos, size, physics);
     }
 
-    auto* win = MakePlatform(level.winPlatformPos, level.winPlatformSize, physics);
-    win->physics.isWinPlatform = true;
-    win->renderable.glow = { 0, .4, .9 };
-    win->renderable.color = { .05, .05, .05, 1.0 };
+    auto& win = MakePlatform(level.winPlatformPos, level.winPlatformSize, physics);
+    win.physics.isWinPlatform = true;
+    win.renderable.glow = { 0, .4, .9 };
+    win.renderable.color = { .05, .05, .05, 1.0 };
 
     bombInventory = level.startBombs;
 
